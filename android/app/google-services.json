@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1057092143292",
+    "project_id": "diginiwas-8d0e0",
+    "storage_bucket": "diginiwas-8d0e0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1057092143292:android:545a4302533f363ba4e8b9",
+        "android_client_info": {
+          "package_name": "com.example.diginiwas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALV5FYYRzDUbE7iGy8UvWyp9H_6jjn5CM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

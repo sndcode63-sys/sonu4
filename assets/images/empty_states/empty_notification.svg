@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EFF6FF"/>
+      <stop offset="100%" stop-color="#DBEAFE"/>
+    </linearGradient>
+    <linearGradient id="bellGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="60%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="pulseGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <ellipse cx="120" cy="155" rx="90" ry="24" fill="url(#pulseGrad)"/>
+
+  <!-- Ground Island -->
+  <ellipse cx="120" cy="158" rx="80" ry="18" fill="url(#cloudGrad)"/>
+  <ellipse cx="120" cy="155" rx="72" ry="14" fill="#FFFFFF"/>
+
+  <!-- Bushes -->
+  <circle cx="68" cy="146" r="14" fill="#6EE7B7"/>
+  <circle cx="78" cy="142" r="11" fill="#34D399"/>
+  <circle cx="170" cy="145" r="13" fill="#6EE7B7"/>
+  <circle cx="160" cy="148" r="10" fill="#34D399"/>
+
+  <!-- Sound / Notification Waves -->
+  <path d="M78 68C72 74 68 84 68 94" stroke="#93C5FD" stroke-width="3" stroke-linecap="round"/>
+  <path d="M70 58C62 68 56 80 56 94" stroke="#BFDBFE" stroke-width="3" stroke-linecap="round"/>
+  <path d="M162 68C168 74 172 84 172 94" stroke="#93C5FD" stroke-width="3" stroke-linecap="round"/>
+  <path d="M170 58C178 68 184 80 184 94" stroke="#BFDBFE" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Notification Bell -->
+  <g filter="url(#softShadow)">
+    <!-- Top Loop -->
+    <path d="M120 44C116.7 44 114 46.7 114 50V52H126V50C126 46.7 123.3 44 120 44Z" fill="#1E40AF"/>
+    <!-- Bell Body -->
+    <path d="M120 52C102 52 92 68 92 92C92 108 84 116 84 116H156C156 116 148 108 148 92C148 68 138 52 120 52Z" fill="url(#bellGrad)"/>
+    <!-- Clapper Base -->
+    <ellipse cx="120" cy="116" rx="36" ry="6" fill="#1D4ED8"/>
+    <circle cx="120" cy="122" r="8" fill="#1E3A8A"/>
+  </g>
+
+  <!-- Mute / Peaceful Badge -->
+  <g filter="url(#softShadow)">
+    <circle cx="156" cy="126" r="18" fill="#FFFFFF"/>
+    <circle cx="156" cy="126" r="15" fill="#3B82F6"/>
+    <!-- Checkmark or Zzz -->
+    <path d="M150 126L154 130L162 122" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Sparkles -->
+  <path d="M120 28L121.5 32.5L126 34L121.5 35.5L120 40L118.5 35.5L114 34L118.5 32.5L120 28Z" fill="#FBBF24"/>
+</svg>

@@ -1,0 +1,142 @@
+<svg viewBox="0 0 420 340" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-12px); }
+      }
+      @keyframes floatSlow {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
+      }
+      @keyframes floatDelay {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-16px); }
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes glassSwing {
+        0%, 100% { transform: rotate(-10deg); }
+        50% { transform: rotate(10deg); }
+      }
+      @keyframes dotBounce {
+        0%, 100% { transform: translateY(0px); opacity: 0.4; }
+        50% { transform: translateY(-8px); opacity: 1; }
+      }
+      @keyframes sparkle {
+        0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+        50% { opacity: 1; transform: scale(1.1) rotate(90deg); }
+      }
+      @keyframes shadowPulse {
+        0%, 100% { transform: scaleX(1); opacity: 0.25; }
+        50% { transform: scaleX(0.85); opacity: 0.15; }
+      }
+      .house1 { animation: float 3.6s ease-in-out infinite; transform-origin: 130px 210px; }
+      .house2 { animation: floatDelay 4.2s ease-in-out infinite 0.4s; transform-origin: 310px 190px; }
+      .house3 { animation: floatSlow 3.2s ease-in-out infinite 0.8s; transform-origin: 210px 260px; }
+      .glass-g { animation: glassSwing 2.4s ease-in-out infinite; transform-origin: 210px 175px; }
+      .ring { animation: spin 14s linear infinite; transform-origin: 210px 175px; }
+      .dot1 { animation: dotBounce 1.4s ease-in-out infinite; }
+      .dot2 { animation: dotBounce 1.4s ease-in-out infinite 0.15s; }
+      .dot3 { animation: dotBounce 1.4s ease-in-out infinite 0.3s; }
+      .spark1 { animation: sparkle 2.4s ease-in-out infinite; }
+      .spark2 { animation: sparkle 2.8s ease-in-out infinite 1s; }
+      .spark3 { animation: sparkle 2.1s ease-in-out infinite 1.6s; }
+      .spark4 { animation: sparkle 2.6s ease-in-out infinite 0.5s; }
+      .shadow1 { animation: shadowPulse 3.6s ease-in-out infinite; transform-origin: 130px 300px; }
+      .shadow2 { animation: shadowPulse 4.2s ease-in-out infinite 0.4s; transform-origin: 310px 300px; }
+      .shadow3 { animation: shadowPulse 3.2s ease-in-out infinite 0.8s; transform-origin: 210px 300px; }
+    </style>
+
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C4DFF"/>
+      <stop offset="100%" stop-color="#5B2FE0"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FF7A59"/>
+      <stop offset="100%" stop-color="#FF4D6D"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22D3C5"/>
+      <stop offset="100%" stop-color="#0EA8B8"/>
+    </linearGradient>
+    <linearGradient id="gGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFC94D"/>
+      <stop offset="100%" stop-color="#FF9F1C"/>
+    </linearGradient>
+    <linearGradient id="roofG1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9B6DFF"/>
+      <stop offset="100%" stop-color="#7C4DFF"/>
+    </linearGradient>
+    <linearGradient id="roofG2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF9A7A"/>
+      <stop offset="100%" stop-color="#FF7A59"/>
+    </linearGradient>
+    <linearGradient id="roofG3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4FE6D6"/>
+      <stop offset="100%" stop-color="#22D3C5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- floating ground shadows (keeps bg transparent, just soft blobs) -->
+  <ellipse class="shadow1" cx="130" cy="300" rx="42" ry="9" fill="#7C4DFF" opacity="0.25"/>
+  <ellipse class="shadow2" cx="310" cy="300" rx="42" ry="9" fill="#FF7A59" opacity="0.25"/>
+  <ellipse class="shadow3" cx="210" cy="300" rx="38" ry="8" fill="#22D3C5" opacity="0.25"/>
+
+  <!-- sparkles scattered around -->
+  <g fill="#FFC94D">
+    <path class="spark1" d="M40 90 l4 9 l9 4 l-9 4 l-4 9 l-4-9 l-9-4 l9-4 z"/>
+    <path class="spark2" d="M380 70 l3 7 l7 3 l-7 3 l-3 7 l-3-7 l-7-3 l7-3 z"/>
+    <path class="spark3" d="M370 240 l4 9 l9 4 l-9 4 l-4 9 l-4-9 l-9-4 l9-4 z"/>
+    <path class="spark4" d="M30 250 l3 7 l7 3 l-7 3 l-3 7 l-3-7 l-7-3 l7-3 z"/>
+  </g>
+
+  <!-- house 2 (right, teal, smaller, back layer) -->
+  <g class="house2">
+    <rect x="278" y="150" width="64" height="50" rx="6" fill="#EAFBF9"/>
+    <polygon points="270,150 310,120 350,150" fill="url(#roofG3)"/>
+    <rect x="298" y="172" width="16" height="28" rx="2" fill="url(#g3)"/>
+    <rect x="284" y="158" width="14" height="14" rx="2" fill="#C7F5EF"/>
+    <rect x="318" y="158" width="14" height="14" rx="2" fill="#C7F5EF"/>
+  </g>
+
+  <!-- house 3 (bottom middle, coral, small) -->
+  <g class="house3">
+    <rect x="180" y="220" width="60" height="46" rx="6" fill="#FFF1EE"/>
+    <polygon points="172,220 210,193 248,220" fill="url(#roofG2)"/>
+    <rect x="198" y="242" width="15" height="24" rx="2" fill="url(#g2)"/>
+    <rect x="186" y="228" width="13" height="13" rx="2" fill="#FFD8CD"/>
+    <rect x="220" y="228" width="13" height="13" rx="2" fill="#FFD8CD"/>
+  </g>
+
+  <!-- house 1 (main, purple, biggest, front layer) -->
+  <g class="house1">
+    <rect x="70" y="150" width="120" height="90" rx="10" fill="#F1ECFF"/>
+    <polygon points="58,150 130,100 202,150" fill="url(#roofG1)"/>
+    <rect x="122" y="192" width="34" height="48" rx="4" fill="url(#g1)"/>
+    <circle cx="148" cy="216" r="2.5" fill="#FFE9C4"/>
+    <rect x="84" y="168" width="26" height="26" rx="4" fill="#DCD0FF"/>
+    <line x1="97" y1="168" x2="97" y2="194" stroke="#F1ECFF" stroke-width="2"/>
+    <line x1="84" y1="181" x2="110" y2="181" stroke="#F1ECFF" stroke-width="2"/>
+    <rect x="150" y="168" width="26" height="26" rx="4" fill="#DCD0FF"/>
+    <line x1="163" y1="168" x2="163" y2="194" stroke="#F1ECFF" stroke-width="2"/>
+    <line x1="150" y1="181" x2="176" y2="181" stroke="#F1ECFF" stroke-width="2"/>
+  </g>
+
+  <!-- orbiting dashed ring behind magnifier -->
+  <circle class="ring" cx="210" cy="175" r="46" fill="none" stroke="#7C4DFF" stroke-width="2" stroke-dasharray="4 8" opacity="0.35"/>
+
+  <!-- magnifying glass, center stage -->
+  <g class="glass-g">
+    <circle cx="210" cy="175" r="30" fill="none" stroke="url(#gGlass)" stroke-width="10"/>
+    <circle cx="210" cy="175" r="30" fill="#FFFFFF" opacity="0.5"/>
+    <line x1="232" y1="197" x2="258" y2="223" stroke="url(#gGlass)" stroke-width="11" stroke-linecap="round"/>
+  </g>
+
+  <!-- searching dots -->
+  <circle class="dot1" cx="185" cy="300" r="5" fill="#7C4DFF"/>
+  <circle class="dot2" cx="210" cy="300" r="5" fill="#FF7A59"/>
+  <circle class="dot3" cx="235" cy="300" r="5" fill="#22D3C5"/>
+</svg>

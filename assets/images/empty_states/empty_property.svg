@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EFF6FF"/>
+      <stop offset="100%" stop-color="#DBEAFE"/>
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F8FAFC"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Ground Island -->
+  <ellipse cx="120" cy="158" rx="84" ry="18" fill="url(#cloudGrad)"/>
+  <ellipse cx="120" cy="155" rx="76" ry="14" fill="#FFFFFF"/>
+
+  <!-- Bushes & Trees -->
+  <circle cx="62" cy="144" r="15" fill="#6EE7B7"/>
+  <circle cx="74" cy="140" r="12" fill="#34D399"/>
+  <circle cx="178" cy="144" r="14" fill="#6EE7B7"/>
+  <circle cx="166" cy="146" r="11" fill="#34D399"/>
+
+  <!-- Modern House Structure -->
+  <g filter="url(#softShadow)">
+    <!-- Main House Body -->
+    <rect x="76" y="86" width="76" height="60" rx="4" fill="url(#wallGrad)" stroke="#E2E8F0" stroke-width="1.5"/>
+    
+    <!-- Roof with Overhang -->
+    <path d="M114 52L66 88H162L114 52Z" fill="url(#roofGrad)"/>
+    <path d="M114 56L72 88H156L114 56Z" fill="#60A5FA" fill-opacity="0.3"/>
+    
+    <!-- Chimney -->
+    <rect x="134" y="60" width="10" height="18" fill="#1E40AF"/>
+
+    <!-- Windows -->
+    <rect x="88" y="98" width="18" height="18" rx="3" fill="#93C5FD"/>
+    <line x1="97" y1="98" x2="97" y2="116" stroke="#FFFFFF" stroke-width="1.5"/>
+    <line x1="88" y1="107" x2="106" y2="107" stroke="#FFFFFF" stroke-width="1.5"/>
+
+    <!-- Front Door -->
+    <rect x="120" y="112" width="16" height="34" rx="2" fill="#2563EB"/>
+    <circle cx="132" cy="128" r="1.5" fill="#FBBF24"/>
+
+    <!-- Garage / Side Wing -->
+    <rect x="148" y="104" width="28" height="42" rx="3" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1.5"/>
+    <rect x="152" y="112" width="20" height="34" rx="2" fill="#E2E8F0"/>
+  </g>
+
+  <!-- Sparkles -->
+  <path d="M60 68L61.5 72.5L66 74L61.5 75.5L60 80L58.5 75.5L54 74L58.5 72.5L60 68Z" fill="#FBBF24"/>
+  <path d="M184 66L185.5 70.5L190 72L185.5 73.5L184 78L182.5 73.5L178 72L182.5 70.5L184 66Z" fill="#38BDF8"/>
+</svg>

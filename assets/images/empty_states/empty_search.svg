@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EFF6FF"/>
+      <stop offset="100%" stop-color="#DBEAFE"/>
+    </linearGradient>
+    <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#BAE6FD"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="handleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Ground Island -->
+  <ellipse cx="120" cy="158" rx="80" ry="18" fill="url(#cloudGrad)"/>
+  <ellipse cx="120" cy="155" rx="72" ry="14" fill="#FFFFFF"/>
+
+  <!-- Bushes -->
+  <circle cx="68" cy="146" r="14" fill="#6EE7B7"/>
+  <circle cx="78" cy="142" r="11" fill="#34D399"/>
+  <circle cx="170" cy="145" r="13" fill="#6EE7B7"/>
+  <circle cx="160" cy="148" r="10" fill="#34D399"/>
+
+  <!-- House under inspection -->
+  <path d="M106 112L88 126V148H124V126L106 112Z" fill="#CBD5E1"/>
+  <rect x="102" y="132" width="8" height="16" fill="#94A3B8"/>
+
+  <!-- Magnifying Glass -->
+  <g filter="url(#softShadow)">
+    <!-- Lens Outer Rim -->
+    <circle cx="126" cy="94" r="38" fill="none" stroke="url(#handleGrad)" stroke-width="12"/>
+    <!-- Glass with highlight -->
+    <circle cx="126" cy="94" r="32" fill="url(#glassGrad)" fill-opacity="0.5"/>
+    <path d="M108 80C114 74 122 72 130 72" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Question Mark in Lens -->
+    <text x="126" y="106" text-anchor="middle" font-family="Poppins, Arial, sans-serif" font-size="34" font-weight="bold" fill="#1E3A8A">?</text>
+
+    <!-- Handle -->
+    <rect x="152" y="120" width="14" height="42" rx="7" transform="rotate(-45 152 120)" fill="url(#handleGrad)"/>
+  </g>
+
+  <!-- Sparkles -->
+  <path d="M68 64L70 69L75 71L70 73L68 78L66 73L61 71L66 69L68 64Z" fill="#FBBF24"/>
+  <path d="M188 56L189.5 60.5L194 62L189.5 63.5L188 68L186.5 63.5L182 62L186.5 60.5L188 56Z" fill="#38BDF8"/>
+</svg>

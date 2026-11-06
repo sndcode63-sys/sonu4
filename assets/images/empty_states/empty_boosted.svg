@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EBF4FF"/>
+      <stop offset="100%" stop-color="#D6E4FF"/>
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFB020"/>
+      <stop offset="60%" stop-color="#FF5722"/>
+      <stop offset="100%" stop-color="#E11D48"/>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#33CC99" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#33CC99" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <ellipse cx="120" cy="155" rx="90" ry="24" fill="url(#glowGrad)"/>
+  
+  <!-- Ground Island -->
+  <ellipse cx="120" cy="158" rx="80" ry="18" fill="url(#cloudGrad)"/>
+  <ellipse cx="120" cy="155" rx="72" ry="14" fill="#FFFFFF"/>
+
+  <!-- Left Bush -->
+  <circle cx="68" cy="146" r="14" fill="#6EE7B7"/>
+  <circle cx="78" cy="142" r="11" fill="#34D399"/>
+  
+  <!-- Right Bush -->
+  <circle cx="168" cy="145" r="13" fill="#6EE7B7"/>
+  <circle cx="158" cy="148" r="10" fill="#34D399"/>
+
+  <!-- Main Billboard / Property Stand -->
+  <g filter="url(#softShadow)">
+    <!-- Post -->
+    <rect x="82" y="58" width="10" height="96" rx="5" fill="#1E3A8A"/>
+    <!-- Crossbar -->
+    <rect x="80" y="68" width="86" height="8" rx="4" fill="#2563EB"/>
+    <rect x="112" y="74" width="3" height="12" fill="#94A3B8"/>
+    <rect x="150" y="74" width="3" height="12" fill="#94A3B8"/>
+
+    <!-- Hanging Board -->
+    <rect x="100" y="82" width="68" height="52" rx="10" fill="#3B82F6"/>
+    <!-- House Icon on Board -->
+    <path d="M134 94L118 106V124H150V106L134 94Z" fill="#FFFFFF"/>
+    <rect x="130" y="112" width="8" height="12" rx="1" fill="#2563EB"/>
+    <rect x="141" y="98" width="4" height="6" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Rocket / Boost Flame Badge -->
+  <g filter="url(#softShadow)">
+    <circle cx="166" cy="128" r="22" fill="#FFFFFF"/>
+    <circle cx="166" cy="128" r="19" fill="url(#flameGrad)"/>
+    <!-- Fire Flame Graphic -->
+    <path d="M166 114C166 114 174 122 174 129C174 133.4 170.4 137 166 137C161.6 137 158 133.4 158 129C158 124 163 121 163 121C163 121 163 124 165 125C167 126 169 124 169 121C169 118 166 114 166 114Z" fill="#FFFFFF"/>
+    <path d="M166 126C166 126 169 129 169 131C169 132.6 167.6 134 166 134C164.4 134 163 132.6 163 131C163 129.5 165 128 165 128C165 128 165 129 165.5 129.5C166 130 166.5 129.5 166.5 128.5C166.5 127.5 166 126 166 126Z" fill="#FFB020"/>
+  </g>
+
+  <!-- Sparkles -->
+  <path d="M60 80L62 86L68 88L62 90L60 96L58 90L52 88L58 86L60 80Z" fill="#FBBF24"/>
+  <path d="M188 64L189.5 68.5L194 70L189.5 71.5L188 76L186.5 71.5L182 70L186.5 68.5L188 64Z" fill="#38BDF8"/>
+  <circle cx="106" cy="54" r="3" fill="#F472B6"/>
+</svg>
