@@ -40,6 +40,13 @@ TextStyle _t(double size, FontWeight w, Color c, {double? h, double? ls}) =>
       letterSpacing: ls,
     );
 
+/// Compare-table cell: real API value or an em dash (never fake data).
+String _cmpVal(dynamic v, {String prefix = '', String suffix = ''}) {
+  final s = v?.toString().trim() ?? '';
+  if (s.isEmpty || s.toLowerCase() == 'null') return '—';
+  return '$prefix$s$suffix';
+}
+
 Map<String, dynamic> _pfPropertyToMap(PfPropertyData p) {
   return {
     '_id': p.sId,
@@ -1515,10 +1522,13 @@ class _PropertyCard extends StatelessWidget {
     final title = property['title'] ?? property['name'] ?? 'Property';
     final locality = property['locality'] ?? '';
     final city = property['city'] ?? '';
-    final price = property['price']?.toString() ?? '0';
-    final bedrooms = property['bedrooms']?.toString() ?? '3';
-    final furnishing = property['furnishing'] ?? 'Ready';
-    final area = property['area']?.toString() ?? '1,150 sqft';
+    final price = property['price']?.toString() ?? '';
+    final bedroomsRaw = property['bedrooms']?.toString().trim() ?? '';
+    final bedrooms = bedroomsRaw.isEmpty ? '—' : '$bedroomsRaw BHK';
+    final furnishingRaw = property['furnishing']?.toString().trim() ?? '';
+    final furnishing = furnishingRaw.isEmpty ? '—' : furnishingRaw;
+    final areaRaw = property['area']?.toString().trim() ?? '';
+    final area = areaRaw.isEmpty ? '—' : areaRaw;
     final bool effectiveIsCompared = isCompared ?? (property['isCompared'] == true);
 
     String? imageUrl;
@@ -1526,9 +1536,9 @@ class _PropertyCard extends StatelessWidget {
     if (images is List && images.isNotEmpty) {
       imageUrl = images.first is Map
           ? (images.first['secure_url']?.toString() ??
-              images.first['url']?.toString() ??
-              images.first['imageUrl']?.toString() ??
-              images.first['image']?.toString())
+          images.first['url']?.toString() ??
+          images.first['imageUrl']?.toString() ??
+          images.first['image']?.toString())
           : images.first?.toString();
     }
     if ((imageUrl == null || imageUrl.isEmpty) && property['image'] is String) {
@@ -1621,9 +1631,9 @@ class _PropertyCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildSpecItem('BHK', '$bedrooms BHK'),
+                    _buildSpecItem('BHK', bedrooms),
                     _buildSpecItem('Area', area),
-                    _buildSpecItem('Possession', furnishing),
+                    _buildSpecItem('Furnishing', furnishing),
                   ],
                 ),
                 SizedBox(height: 12.h),
@@ -1877,13 +1887,16 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     final price = item['price']?.toString() ?? '0';
 
     String? imageUrl;
-    final images = item['images'] ?? item['photos'] ?? item['gallery'];
+    final images = item['images'] ??
+        (item['media'] is Map ? (item['media']['images'] ?? item['media']['photos']) : null) ??
+        item['photos'] ??
+        item['gallery'];
     if (images is List && images.isNotEmpty) {
       imageUrl = images.first is Map
           ? (images.first['secure_url']?.toString() ??
-              images.first['url']?.toString() ??
-              images.first['imageUrl']?.toString() ??
-              images.first['image']?.toString())
+          images.first['url']?.toString() ??
+          images.first['imageUrl']?.toString() ??
+          images.first['image']?.toString())
           : images.first?.toString();
     }
     if ((imageUrl == null || imageUrl.isEmpty) && item['image'] is String) {
@@ -1965,34 +1978,34 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
           _buildDynamicTableRow(
             icon: Icons.grid_view_rounded,
             label: 'Configuration',
-            values: _properties.map((e) => '${e['bedrooms'] ?? '2'} BHK').toList(),
+            values: _properties.map((e) => _cmpVal(e['bedrooms'], suffix: ' BHK')).toList(),
             isFirst: true,
           ),
           _buildDynamicTableRow(
             icon: Icons.crop_square_rounded,
             label: 'Carpet Area',
-            values: _properties.map((e) => e['area']?.toString() ?? '1,240 sq.ft').toList(),
+            values: _properties.map((e) => _cmpVal(e['area'])).toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.calendar_today_outlined,
-            label: 'Possession',
-            values: _properties.map((e) => e['furnishing']?.toString() ?? 'Ready to Move').toList(),
+            label: 'Furnishing',
+            values: _properties.map((e) => _cmpVal(e['furnishing'])).toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.sell_outlined,
             label: 'Price',
-            values: _properties.map((e) => '₹ ${e['price'] ?? '85 L'}').toList(),
+            values: _properties.map((e) => _cmpVal(e['price'], prefix: '₹ ')).toList(),
             isHighlighted: true,
           ),
           _buildDynamicTableRow(
             icon: Icons.location_on_outlined,
             label: 'Locality',
-            values: _properties.map((e) => e['locality']?.toString() ?? 'Bopal').toList(),
+            values: _properties.map((e) => _cmpVal(e['locality'])).toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.verified_user_outlined,
             label: 'Verification',
-            values: _properties.map((e) => 'Verified').toList(),
+            values: _properties.map((e) => (e['verificationStatus']?.toString().toLowerCase() == 'verified' || e['isVerified'] == true) ? 'Verified' : '—').toList(),
             isVerifiedTag: true,
             isLast: true,
           ),

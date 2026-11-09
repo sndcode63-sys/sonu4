@@ -1,3 +1,4 @@
+import '../../../core/config/app_config.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -60,12 +61,15 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
         final locality = p['locality'] ?? p['address'] ?? '';
         final city = p['city'] ?? '';
         final price = p['price']?.toString() ?? p['price_label'] ?? '';
-        final bhk = p['bedrooms'] ?? p['bhk'] ?? '2';
-        final area = p['area'] ?? p['size'] ?? '1200 sqft';
+        final bhk = (p['bedrooms'] ?? p['bhk'] ?? '').toString().trim();
+        final area = (p['area'] ?? p['size'] ?? '').toString().trim();
         final propId = p['propertyCode'] ?? p['propertyId'] ?? p['property_id'] ?? '';
 
         buffer.writeln(
-            '${i + 1}. $title (Code: $propId) in $locality, $city. Price: ₹$price, Configuration: $bhk BHK, Area: $area.');
+            '${i + 1}. $title (Code: $propId) in $locality, $city.'
+                '${price.toString().isNotEmpty ? ' Price: ₹$price,' : ''}'
+                '${bhk.isNotEmpty ? ' Configuration: $bhk BHK,' : ''}'
+                '${area.isNotEmpty ? ' Area: $area.' : ''}');
       }
       buffer.writeln('\nPlease provide a clear 3-point comparative summary:');
       buffer.writeln('1. Price & Value: Which listing gives better value per sqft or fits budget better.');
@@ -126,7 +130,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
 
         await Share.shareXFiles(
           [XFile(imagePath.path)],
-          text: 'Check out this property comparison table on DigiNiwas!\nExplore more properties on: https://diginiwas.com',
+          text: 'Check out this property comparison table on DigiNiwas!\nExplore more properties on: ${AppConfig.websiteUrl}',
           subject: 'Property Comparison Table',
         );
       }
@@ -255,13 +259,16 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     final price = _getPrice(item);
 
     String? imageUrl;
-    final images = item['images'] ?? item['photos'] ?? item['gallery'];
+    final images = item['images'] ??
+        (item['media'] is Map ? (item['media']['images'] ?? item['media']['photos']) : null) ??
+        item['photos'] ??
+        item['gallery'];
     if (images is List && images.isNotEmpty) {
       imageUrl = images.first is Map
           ? (images.first['secure_url']?.toString() ??
-              images.first['url']?.toString() ??
-              images.first['imageUrl']?.toString() ??
-              images.first['image']?.toString())
+          images.first['url']?.toString() ??
+          images.first['imageUrl']?.toString() ??
+          images.first['image']?.toString())
           : images.first?.toString();
     }
     if ((imageUrl == null || imageUrl.isEmpty) && item['image'] is String) {
@@ -364,7 +371,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
               SizedBox(width: 2.w),
               Expanded(
                 child: Text(
-                  locality.isNotEmpty ? locality : 'Indore',
+                  locality.isNotEmpty ? locality : '—',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(

@@ -42,11 +42,11 @@ class PropertyReviewModel {
       uAvatar = json['userAvatar']?.toString();
     }
 
-    num r = 5;
+    num r = 0;
     if (json['rating'] is num) {
       r = json['rating'];
     } else if (json['rating'] != null) {
-      r = num.tryParse(json['rating'].toString()) ?? 5;
+      r = num.tryParse(json['rating'].toString()) ?? 0;
     }
 
     DateTime? date;

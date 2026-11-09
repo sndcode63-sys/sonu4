@@ -74,14 +74,9 @@ class PropertyReviewsRepository {
             return PropertyReviewModel.fromJson(Map<String, dynamic>.from(reviewRaw));
           }
 
-          // Fallback optimistic review object
-          return PropertyReviewModel(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            propertyId: propertyId,
-            rating: rating,
-            remark: remark,
-            createdAt: DateTime.now(),
-          );
+          // Server did not return the saved review -> treat as not saved,
+          // caller re-fetches the real list from the API.
+          return null;
         }
       } catch (e) {
         AppLogger.w('Failed to submit review to $endpoint: $e');

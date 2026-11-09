@@ -29,8 +29,8 @@ class TestimonialModel {
 
     return TestimonialModel(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? 'Community Member',
-      designation: json['designation']?.toString() ?? 'Home Buyer',
+      name: json['name']?.toString() ?? '',
+      designation: json['designation']?.toString() ?? '',
       review: json['review']?.toString() ?? '',
       imageUrl: img,
       videoLink: json['videoLink']?.toString(),

@@ -57,6 +57,15 @@ class ViewAllRepository {
         'image': a.sampleImage,
         'propertyCount': a.propertyCount,
         'city': a.city ?? '',
+        'properties': (a.properties ?? []).map<Map<String, dynamic>>((p) => {
+          '_id': p.mongoId ?? p.id,
+          'propertyId': p.propertyId ?? p.id,
+          'title': p.title,
+          'price': p.price,
+          'locality': a.locality,
+          'city': a.city,
+          'images': p.image != null ? [{'url': p.image}] : [],
+        }).toList(),
       };
     }).toList();
   }

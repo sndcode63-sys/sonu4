@@ -4,34 +4,26 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/widgets/app_adaptive_back_button.dart';
 import '../../../core/widgets/app_pill_search_bar.dart';
+import '../controllers/buyer_home_controller.dart';
 
 class SelectCityScreen extends StatefulWidget {
   final String? selectedCity;
 
   const SelectCityScreen({super.key, this.selectedCity});
 
-  static const List<String> popularCities = [
-    'Mumbai',
-    'Bengaluru',
-    'Hyderabad',
-    'Delhi',
-    'Pune',
-    'Indore',
-    'Ahmedabad',
-    'Jaipur',
-    'Chennai',
-    'Kolkata',
-    'Bhopal',
-    'Chandigarh',
-    'Lucknow',
-    'Surat',
-    'Gurgaon',
-    'Noida',
-    'Kochi',
-    'Patna',
-    'Nagpur',
-    'Vadodara',
-  ];
+  /// Popular cities come from the live home-feed API (popularAreas), not a
+  /// hardcoded list. Empty until the feed has loaded.
+  static List<String> get popularCities {
+    if (!Get.isRegistered<BuyerHomeController>()) return const [];
+    final areas = Get.find<BuyerHomeController>().homeFeed.value?.popularAreas ?? [];
+    final seen = <String>{};
+    final out = <String>[];
+    for (final a in areas) {
+      final c = (a.city ?? '').trim();
+      if (c.isNotEmpty && seen.add(c.toLowerCase())) out.add(c);
+    }
+    return out;
+  }
 
   static const List<String> allCities = [
     'Abohar',
@@ -482,8 +474,8 @@ class _SelectCityScreenState extends State<SelectCityScreen> {
     final filteredCities = queryTrimmed.isEmpty
         ? SelectCityScreen.allCities
         : SelectCityScreen.allCities
-            .where((c) => c.toLowerCase().contains(queryTrimmed))
-            .toList();
+        .where((c) => c.toLowerCase().contains(queryTrimmed))
+        .toList();
 
     final hasSelected = widget.selectedCity != null && widget.selectedCity!.trim().isNotEmpty;
 
@@ -657,64 +649,64 @@ class _SelectCityScreenState extends State<SelectCityScreen> {
             Expanded(
               child: filteredCities.isEmpty
                   ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.r),
-                        child: Text(
-                          'No city found matching "$_query"',
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF64748B),
-                            fontSize: 13.sp,
-                          ),
-                        ),
-                      ),
-                    )
+                child: Padding(
+                  padding: EdgeInsets.all(24.r),
+                  child: Text(
+                    'No city found matching "$_query"',
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF64748B),
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ),
+              )
                   : ListView.separated(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
-                      physics: const ClampingScrollPhysics(),
-                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                      itemCount: filteredCities.length,
-                      separatorBuilder: (context, index) => const Divider(
-                        height: 1,
-                        thickness: 0.8,
-                        color: Color(0xFFF1F5F9),
-                      ),
-                      itemBuilder: (context, index) {
-                        final city = filteredCities[index];
-                        final isSelected = widget.selectedCity?.toLowerCase() == city.toLowerCase();
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+                physics: const ClampingScrollPhysics(),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                itemCount: filteredCities.length,
+                separatorBuilder: (context, index) => const Divider(
+                  height: 1,
+                  thickness: 0.8,
+                  color: Color(0xFFF1F5F9),
+                ),
+                itemBuilder: (context, index) {
+                  final city = filteredCities[index];
+                  final isSelected = widget.selectedCity?.toLowerCase() == city.toLowerCase();
 
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _selectCity(city),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 13.h, horizontal: 4.w),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  city,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14.sp,
-                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                    color: isSelected ? const Color(0xFF00C896) : const Color(0xFF1E293B),
-                                  ),
-                                ),
-                                isSelected
-                                    ? Icon(
-                                        Icons.check_circle_rounded,
-                                        color: const Color(0xFF00C896),
-                                        size: 19.sp,
-                                      )
-                                    : Icon(
-                                        Icons.chevron_right_rounded,
-                                        color: const Color(0xFFCBD5E1),
-                                        size: 20.sp,
-                                      ),
-                              ],
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _selectCity(city),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 13.h, horizontal: 4.w),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            city,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14.sp,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? const Color(0xFF00C896) : const Color(0xFF1E293B),
                             ),
                           ),
-                        );
-                      },
+                          isSelected
+                              ? Icon(
+                            Icons.check_circle_rounded,
+                            color: const Color(0xFF00C896),
+                            size: 19.sp,
+                          )
+                              : Icon(
+                            Icons.chevron_right_rounded,
+                            color: const Color(0xFFCBD5E1),
+                            size: 20.sp,
+                          ),
+                        ],
+                      ),
                     ),
+                  );
+                },
+              ),
             ),
           ],
         ),

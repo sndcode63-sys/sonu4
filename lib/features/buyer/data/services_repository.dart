@@ -1,3 +1,4 @@
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/api_constants.dart';
 
 import '../../../core/network/api_service.dart';
@@ -57,7 +58,7 @@ class ServicesRepository {
     String? notes,
   }) async {
     final message = '$name wants $serviceName ($actionType).';
-    const targetAdminEmail = 'sndcode63@gmail.com';
+    final targetAdminEmail = AppConfig.adminLeadEmail;
 
     // Full details that go in the admin email body.
     final details = StringBuffer()
@@ -70,9 +71,11 @@ class ServicesRepository {
       ..writeln('Time: ${DateTime.now().toIso8601String()}');
 
     final leadPayload = {
-      'adminEmail': targetAdminEmail,
-      'to': targetAdminEmail,
-      'recipient': targetAdminEmail,
+      if (targetAdminEmail.isNotEmpty) ...{
+        'adminEmail': targetAdminEmail,
+        'to': targetAdminEmail,
+        'recipient': targetAdminEmail,
+      },
       'name': name.trim(),
       'phone': phone.trim(),
       if (email != null && email.trim().isNotEmpty) 'email': email.trim(),

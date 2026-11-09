@@ -397,6 +397,43 @@ class StorageService {
   }
 
   // -----------------------------------------------------------------
+  // NIWAS AI CHAT SESSIONS & HISTORY
+  // -----------------------------------------------------------------
+  static const String _keyAiSessions = 'saved_ai_sessions';
+
+  Future<void> saveAiSession({required String sessionId, required String title}) async {
+    if (sessionId.trim().isEmpty) return;
+    final prefs = await _prefs;
+    final raw = prefs.getStringList(_keyAiSessions) ?? [];
+    final list = raw.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+
+    list.removeWhere((item) => item['id'] == sessionId);
+    list.insert(0, {
+      'id': sessionId,
+      'title': title.trim().isEmpty ? 'Niwas AI Chat' : title.trim(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    final trimmed = list.take(30).map((m) => jsonEncode(m)).toList();
+    await prefs.setStringList(_keyAiSessions, trimmed);
+  }
+
+  Future<List<Map<String, dynamic>>> getSavedAiSessions() async {
+    final prefs = await _prefs;
+    final raw = prefs.getStringList(_keyAiSessions) ?? [];
+    return raw.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+  }
+
+  Future<void> removeAiSession(String sessionId) async {
+    if (sessionId.trim().isEmpty) return;
+    final prefs = await _prefs;
+    final raw = prefs.getStringList(_keyAiSessions) ?? [];
+    final list = raw.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+    list.removeWhere((item) => item['id'] == sessionId);
+    await prefs.setStringList(_keyAiSessions, list.map((m) => jsonEncode(m)).toList());
+  }
+
+  // -----------------------------------------------------------------
   // PROPERTY DRAFT (Save & Continue draft persistence)
   // -----------------------------------------------------------------
   Future<void> savePropertyDraft(Map<String, dynamic> draftData) async {

@@ -81,7 +81,7 @@ class HomeFeedModel {
       data["recommendedProperties"] = recommendedProperties?.map((e) => e.toJson()).toList();
     }
     if(boostedProperties != null) {
-      data["boostedProperties"] = boostedProperties;
+      data["boostedProperties"] = boostedProperties?.map((e) => e.toJson()).toList();
     }
     if(newListings != null) {
       data["newListings"] = newListings?.map((e) => e.toJson()).toList();
@@ -635,6 +635,9 @@ class NewListings {
     data["furnishing"] = furnishing;
     if(images != null) {
       data["images"] = images?.map((e) => e.toJson()).toList();
+      data["media"] = {
+        "images": images?.map((e) => e.toJson()).toList(),
+      };
     }
     data["createdAt"] = createdAt;
     if(promotion != null) {
@@ -899,6 +902,9 @@ class RecommendedProperties {
     data["furnishing"] = furnishing;
     if(images != null) {
       data["images"] = images?.map((e) => e.toJson()).toList();
+      data["media"] = {
+        "images": images?.map((e) => e.toJson()).toList(),
+      };
     }
     data["createdAt"] = createdAt;
     if(promotion != null) {

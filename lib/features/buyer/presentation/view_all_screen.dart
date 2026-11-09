@@ -179,12 +179,12 @@ class _ViewAllScreenState extends State<ViewAllScreen> {
     final type = widget.type == ViewAllType.agent
         ? EmptyStateType.agent
         : (widget.type == ViewAllType.popularArea
-            ? EmptyStateType.locations
-            : (widget.section == ViewAllSection.boosted
-                ? EmptyStateType.boosted
-                : (widget.section == ViewAllSection.newListings
-                    ? EmptyStateType.noListings
-                    : EmptyStateType.property)));
+        ? EmptyStateType.locations
+        : (widget.section == ViewAllSection.boosted
+        ? EmptyStateType.boosted
+        : (widget.section == ViewAllSection.newListings
+        ? EmptyStateType.noListings
+        : EmptyStateType.property)));
 
     return AppEmptyState(
       type: type,
@@ -466,7 +466,7 @@ class _PropertyCardState extends State<_PropertyCard> {
                   ),
                   SizedBox(height: 10.h),
                   Text(
-                    '₹ ${widget.data['price'] ?? 0}',
+                    widget.data['price'] == null ? '' : '₹ ${widget.data['price']}',
                     style: GoogleFonts.poppins(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF007A5E)),
                   ),
                 ],
@@ -489,17 +489,16 @@ class _AreaCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16.r),
       onTap: () {
-        final propertyData = {
-          'title': '${area['locality'] ?? 'Popular'} Area Properties',
-          'locality': area['locality'] ?? '',
-          'city': area['city'] ?? '',
-          'images': area['image'] != null ? [{'url': area['image']}] : [],
-          'price': 'Explore Available',
-          'description': 'Explore ${area['propertyCount'] ?? 0}+ verified properties available in ${area['locality'] ?? 'this area'}.',
-          'category': 'Residential',
-          'transactionType': 'Sale / Rent',
-        };
-        Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': propertyData});
+        final items = (area['properties'] is List)
+            ? List<Map<String, dynamic>>.from(
+            (area['properties'] as List).map((e) => Map<String, dynamic>.from(e as Map)))
+            : <Map<String, dynamic>>[];
+        if (items.isEmpty) return;
+        Get.to(() => ViewAllScreen(
+          title: '${area['locality'] ?? ''} Properties'.trim(),
+          type: ViewAllType.property,
+          propertyItems: items,
+        ));
       },
       child: Container(
         decoration: BoxDecoration(
@@ -542,7 +541,7 @@ class _AreaCard extends StatelessWidget {
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    '${area['propertyCount'] ?? 0} Properties Available',
+                    area['propertyCount'] == null ? '' : '${area['propertyCount']} Properties Available',
                     style: GoogleFonts.poppins(color: const Color(0xFF64748B), fontSize: 11.5.sp),
                   ),
                 ],

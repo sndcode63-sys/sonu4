@@ -1,3 +1,4 @@
+import '../../../core/config/app_config.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -657,12 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Map<String, dynamic>> _mapPropertyLikeList(List items) {
     return items.map<Map<String, dynamic>>((p) {
-      final imgs = <String>[];
-      if (p.images != null) {
-        for (var img in p.images) {
-          if (img.url != null) imgs.add(img.url as String);
-        }
-      }
+      final imgs = _extractPropertyImages(p);
       return {
         'title': p.title,
         'locality': p.locality,
@@ -1335,24 +1331,36 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    void extractFromObj(dynamic obj) {
+      if (obj == null) return;
+      if (obj is String) {
+        addUrl(obj);
+        return;
+      }
+      if (obj is Map) {
+        addUrl(obj['url'] ??
+            obj['secure_url'] ??
+            obj['imageUrl'] ??
+            obj['image'] ??
+            obj['path'] ??
+            obj['src']);
+        return;
+      }
+      String? val;
+      try { val = (obj as dynamic).url?.toString(); } catch (_) {}
+      try { val ??= (obj as dynamic).secure_url?.toString(); } catch (_) {}
+      try { val ??= (obj as dynamic).imageUrl?.toString(); } catch (_) {}
+      try { val ??= (obj as dynamic).image?.toString(); } catch (_) {}
+      try { val ??= (obj as dynamic).path?.toString(); } catch (_) {}
+      if (val != null) addUrl(val);
+    }
+
     // 1. If item itself has an .images property
     try {
       final dynamic imgs = (item as dynamic).images;
       if (imgs is List && imgs.isNotEmpty) {
         for (final img in imgs) {
-          if (img is String) {
-            addUrl(img);
-          } else if (img is Map) {
-            addUrl(img['secure_url'] ?? img['url'] ?? img['imageUrl'] ?? img['image'] ?? img['path']);
-          } else if (img != null) {
-            try {
-              final u = (img as dynamic).secure_url?.toString() ??
-                  (img as dynamic).url?.toString() ??
-                  (img as dynamic).image?.toString() ??
-                  (img as dynamic).imageUrl?.toString();
-              addUrl(u);
-            } catch (_) {}
-          }
+          extractFromObj(img);
         }
       }
     } catch (_) {}
@@ -1365,11 +1373,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final mImgs = media['images'] ?? media['photos'];
           if (mImgs is List) {
             for (final m in mImgs) {
-              if (m is String) {
-                addUrl(m);
-              } else if (m is Map) {
-                addUrl(m['secure_url'] ?? m['url'] ?? m['imageUrl'] ?? m['image'] ?? m['path']);
-              }
+              extractFromObj(m);
             }
           }
         }
@@ -1380,7 +1384,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (list.isEmpty) {
       try {
         final dynamic single = (item as dynamic).image;
-        addUrl(single);
+        extractFromObj(single);
       } catch (_) {}
     }
 
@@ -1411,11 +1415,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (raw is List) {
         for (final it in raw) {
-          if (it is String) {
-            addUrl(it);
-          } else if (it is Map) {
-            addUrl(it['secure_url'] ?? it['url'] ?? it['image'] ?? it['path'] ?? it['imageUrl']);
-          }
+          extractFromObj(it);
         }
       }
       if (list.isEmpty) {
@@ -2038,42 +2038,42 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           child: ClipRRect(
-          borderRadius: BorderRadius.circular(22.r),
-          child: Stack(
-            children: [
-              Positioned.fill(child: background),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10222B).withValues(alpha: 0.42),
+            borderRadius: BorderRadius.circular(22.r),
+            child: Stack(
+              children: [
+                Positioned.fill(child: background),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10222B).withValues(alpha: 0.42),
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                left: 14.w,
-                right: 14.w,
-                bottom: 12.h,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _t(15, FontWeight.w800, Colors.white)),
-                    Text(count, style: _t(12, FontWeight.w400, Colors.white)),
-                    SizedBox(height: 2.h),
-                    Text('Explore all properties', style: _t(11, FontWeight.w700, _mint)),
-                  ],
+                Positioned(
+                  left: 14.w,
+                  right: 14.w,
+                  bottom: 12.h,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _t(15, FontWeight.w800, Colors.white)),
+                      Text(count, style: _t(12, FontWeight.w400, Colors.white)),
+                      SizedBox(height: 2.h),
+                      Text('Explore all properties', style: _t(11, FontWeight.w700, _mint)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPopularAreas() {
     if (controller.isLoading.value) return _sectionLoader(height: 160);
@@ -2117,22 +2117,37 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 230.w, height: 160.h, fallbackIcon: Icons.location_city_rounded),
                 delay: (idx + 1 > 5 ? 5 : idx + 1) * 70,
                 title: area.locality ?? '',
-                count: '${area.propertyCount ?? 0} Properties',
+                count: area.propertyCount != null ? '${area.propertyCount} Properties' : '',
                 onTap: () {
-                  final propertyData = {
-                    'title': '${area.locality ?? 'Popular'} Area Properties',
-                    'locality': area.locality ?? '',
-                    'city': controller.homeFeed.value?.location?.city ?? 'Indore',
-                    'images': area.image != null ? [{'url': area.image}] : [],
-                    'price': 'Explore Available',
-                    'description':
-                    'Explore ${area.propertyCount ?? 0}+ verified properties available in ${area.locality ?? 'this area'}.',
-                    'category': 'Residential',
-                    'transactionType': 'Sale / Rent',
-                  };
-                  Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': propertyData});
-                },
-              ),
+                  final feed = controller.homeFeed.value;
+                  final loc = (area.locality ?? '').trim().toLowerCase();
+                  final seen = <String>{};
+                  final matched = <dynamic>[];
+
+                  void collect(List? list) {
+                    for (final p in (list ?? [])) {
+                      final pl = (p.locality ?? '').toString().trim().toLowerCase();
+                      if (loc.isEmpty || pl != loc) continue;
+                      final key = (p.id ?? p.propertyId ?? '${p.title}').toString();
+                      if (seen.add(key)) matched.add(p);
+                    }
+                  }
+
+                  collect(feed?.recommendedProperties);
+                  collect(feed?.boostedProperties);
+                  collect(feed?.newListings);
+
+                  if (matched.isEmpty) {
+                    _openPopularViewAll();
+                    return;
+                  }
+                  Get.to(() => ViewAllScreen(
+                    title: '${area.locality ?? ''} Properties'.trim(),
+                    type: ViewAllType.property,
+                    propertyItems: _mapPropertyLikeList(matched),
+                    controller: controller,
+                  ));
+                },              ),
             );
           }),
         ],
@@ -2169,14 +2184,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAgentProfileBottomSheet(BuildContext context, dynamic agent) {
-    final name = agent.name ?? 'Verified Agent';
+    final name = agent.name ?? 'Agent';
     final initial = name.trim().isNotEmpty ? name.trim().substring(0, 1).toUpperCase() : 'A';
     final avatar = agent.avatar;
     final businessName = agent.business?.businessName;
     final businessType = agent.business?.businessType;
     final gstin = agent.business?.gstin;
     final officeAddress = agent.business?.officeAddress;
-    final role = agent.role ?? agent.accountType ?? 'Real Estate Agent';
+    final role = agent.role ?? agent.accountType ?? '';
     final subtitle = (businessName != null && businessName.isNotEmpty) ? businessName : role;
     final distance = agent.distanceKm;
     final isVerified = agent.isVerified == true;
@@ -2665,17 +2680,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text('Follow Us', style: _t(12, FontWeight.w400, Colors.white.withValues(alpha: 0.7))),
                   SizedBox(height: 2.h),
-                  Text('@diginiwas', style: _t(17, FontWeight.w800, Colors.white)),
+                  Text(AppConfig.socialHandle.isNotEmpty ? AppConfig.socialHandle : 'DigiNiwas',
+                      style: _t(17, FontWeight.w800, Colors.white)),
                 ],
               ),
               Row(
                 children: [
-                  social(Icon(Icons.camera_alt_outlined, color: Colors.white, size: 20.sp),
-                      'https://www.instagram.com/'),
-                  social(Icon(Icons.facebook_outlined, color: Colors.white, size: 20.sp),
-                      'https://www.facebook.com/'),
-                  social(Text('in', style: _t(14, FontWeight.w800, Colors.white)),
-                      'https://www.linkedin.com/'),
+                  if (AppConfig.instagramUrl.isNotEmpty)
+                    social(Icon(Icons.camera_alt_outlined, color: Colors.white, size: 20.sp),
+                        AppConfig.instagramUrl),
+                  if (AppConfig.facebookUrl.isNotEmpty)
+                    social(Icon(Icons.facebook_outlined, color: Colors.white, size: 20.sp),
+                        AppConfig.facebookUrl),
+                  if (AppConfig.linkedinUrl.isNotEmpty)
+                    social(Text('in', style: _t(14, FontWeight.w800, Colors.white)),
+                        AppConfig.linkedinUrl),
                 ],
               ),
             ],
@@ -2753,7 +2772,7 @@ class _HomeScreenState extends State<HomeScreen> {
               action(Icons.share_outlined, 'Share', 'Invite your friends', () async {
                 // ignore: deprecated_member_use
                 await Share.share(
-                  'Find verified properties and connect with trusted partners on DigiNiwas! Download now: https://diginiwas.com',
+                  'Find verified properties and connect with trusted partners on DigiNiwas! Download now: ${AppConfig.websiteUrl}',
                   subject: 'DigiNiwas Property Search',
                 );
               }, delay: 160),
@@ -2949,20 +2968,26 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('How would you like to connect with our support desk?',
                 style: _t(12, FontWeight.w400, Colors.grey.shade600)),
             SizedBox(height: 18.h),
-            tile(Icons.email_outlined, _green, const Color(0xFFE6F4EA), 'Email Support',
-                'support@diginiwas.com', () async {
-                  Get.back();
-                  final uri = Uri.parse(
-                      'mailto:support@diginiwas.com?subject=Support%20Request%20-%20DigiNiwas');
-                  if (await canLaunchUrl(uri)) await launchUrl(uri);
-                }),
-            SizedBox(height: 8.h),
-            tile(Icons.phone_in_talk_outlined, const Color(0xFF0284C7), const Color(0xFFE0F2FE),
-                'Call Support Helpline', '+91 8000 000 000 (Mon - Sat, 9am - 7pm)', () async {
-                  Get.back();
-                  final uri = Uri.parse('tel:+918000000000');
-                  if (await canLaunchUrl(uri)) await launchUrl(uri);
-                }),
+            if (AppConfig.supportEmail.isNotEmpty)
+              tile(Icons.email_outlined, _green, const Color(0xFFE6F4EA), 'Email Support',
+                  AppConfig.supportEmail, () async {
+                    Get.back();
+                    final uri = Uri.parse(
+                        'mailto:${AppConfig.supportEmail}?subject=Support%20Request%20-%20DigiNiwas');
+                    if (await canLaunchUrl(uri)) await launchUrl(uri);
+                  }),
+            if (AppConfig.hasSupportPhone) ...[
+              SizedBox(height: 8.h),
+              tile(Icons.phone_in_talk_outlined, const Color(0xFF0284C7), const Color(0xFFE0F2FE),
+                  'Call Support Helpline',
+                  AppConfig.supportHours.isNotEmpty
+                      ? '+${AppConfig.supportPhone} (${AppConfig.supportHours})'
+                      : '+${AppConfig.supportPhone}', () async {
+                    Get.back();
+                    final uri = Uri.parse('tel:+${AppConfig.supportPhone}');
+                    if (await canLaunchUrl(uri)) await launchUrl(uri);
+                  }),
+            ],
             SizedBox(height: 12.h),
           ],
         ),
@@ -3556,22 +3581,24 @@ class AutoSlideAgentCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _t(15, FontWeight.w700, _ink)),
-                      SizedBox(height: 3.h),
-                      BadgeJiggle(
-                        interval: const Duration(seconds: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.verified_user_outlined, size: 14.sp, color: _green),
-                            SizedBox(width: 4.w),
-                            Flexible(
-                              child: Text('DigiNiwas Verified Partner',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: _t(11, FontWeight.w700, _green)),
-                            ),
-                          ],
+                      if (agent.isVerified == true) ...[
+                        SizedBox(height: 3.h),
+                        BadgeJiggle(
+                          interval: const Duration(seconds: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.verified_user_outlined, size: 14.sp, color: _green),
+                              SizedBox(width: 4.w),
+                              Flexible(
+                                child: Text('DigiNiwas Verified Partner',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _t(11, FontWeight.w700, _green)),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                       if (distText != null || rera != null) ...[
                         SizedBox(height: 6.h),
                         Wrap(
@@ -3717,60 +3744,60 @@ class FutureEcosystemWidget extends StatelessWidget {
               SizedBox(height: 12.h),
               Text('Beyond Properties, Endless Possibilities.',
                   style: _t(19, FontWeight.w800, _ink, h: 1.25)),
-            Padding(
-              padding: EdgeInsets.only(top: 8.h, bottom: 6.h),
-              child: Text(
-                'DigiNiwas is building an ecosystem that makes life easier for customers and helps businesses grow together.',
-                style: _t(12, FontWeight.w400, _muted, h: 1.5),
+              Padding(
+                padding: EdgeInsets.only(top: 8.h, bottom: 6.h),
+                child: Text(
+                  'DigiNiwas is building an ecosystem that makes life easier for customers and helps businesses grow together.',
+                  style: _t(12, FontWeight.w400, _muted, h: 1.5),
+                ),
               ),
-            ),
-            ..._services.map((s) {
-              final (icon, title, desc, filled) = s;
-              return _Reveal(
-                  delay: _services.indexOf(s) * 80,
-                  dy: 14,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    decoration: const BoxDecoration(border: Border(top: BorderSide(color: _line))),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40.w,
-                          height: 40.w,
-                          decoration: BoxDecoration(
-                              color: _softGreen, borderRadius: BorderRadius.circular(12.r)),
-                          child: Icon(icon, color: _green, size: 22.sp),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(title, style: _t(13, FontWeight.w700, _ink)),
-                              Text(desc, style: _t(11, FontWeight.w400, _muted, h: 1.4)),
-                            ],
+              ..._services.map((s) {
+                final (icon, title, desc, filled) = s;
+                return _Reveal(
+                    delay: _services.indexOf(s) * 80,
+                    dy: 14,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: _line))),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40.w,
+                            height: 40.w,
+                            decoration: BoxDecoration(
+                                color: _softGreen, borderRadius: BorderRadius.circular(12.r)),
+                            child: Icon(icon, color: _green, size: 22.sp),
                           ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                          decoration: BoxDecoration(
-                            color: filled ? _green : _chipGrey,
-                            borderRadius: BorderRadius.circular(999),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title, style: _t(13, FontWeight.w700, _ink)),
+                                Text(desc, style: _t(11, FontWeight.w400, _muted, h: 1.4)),
+                              ],
+                            ),
                           ),
-                          child: Text('Coming Soon',
-                              style: _t(10, FontWeight.w700, filled ? Colors.white : _muted)),
-                        ),
-                      ],
-                    ),
-                  ));
-            }),
-          ],
+                          SizedBox(width: 12.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                            decoration: BoxDecoration(
+                              color: filled ? _green : _chipGrey,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text('Coming Soon',
+                                style: _t(10, FontWeight.w700, filled ? Colors.white : _muted)),
+                          ),
+                        ],
+                      ),
+                    ));
+              }),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 // ================================================================
@@ -3814,7 +3841,7 @@ class TestimonialCarousel extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: List.generate(
                             5,
-                            (_) => Padding(
+                                (_) => Padding(
                               padding: EdgeInsets.only(right: 3.w),
                               child: Icon(Icons.star_rounded, size: 14.sp, color: const Color(0xFFF2A33A)),
                             ),
@@ -3922,14 +3949,19 @@ class _SocialSpeedDialMenuState extends State<SocialSpeedDialMenu>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _btn(Icons.work_outline_rounded, const Color(0xFF0A66C2),
-                          'https://www.linkedin.com/'),
-                      SizedBox(height: 8.h),
-                      _btn(Icons.facebook_rounded, const Color(0xFF1877F2),
-                          'https://www.facebook.com/'),
-                      SizedBox(height: 8.h),
-                      _btn(Icons.camera_alt_outlined, const Color(0xFFE4405F),
-                          'https://www.instagram.com/'),
+                      if (AppConfig.linkedinUrl.isNotEmpty) ...[
+                        _btn(Icons.work_outline_rounded, const Color(0xFF0A66C2),
+                            AppConfig.linkedinUrl),
+                        SizedBox(height: 8.h),
+                      ],
+                      if (AppConfig.facebookUrl.isNotEmpty) ...[
+                        _btn(Icons.facebook_rounded, const Color(0xFF1877F2),
+                            AppConfig.facebookUrl),
+                        SizedBox(height: 8.h),
+                      ],
+                      if (AppConfig.instagramUrl.isNotEmpty)
+                        _btn(Icons.camera_alt_outlined, const Color(0xFFE4405F),
+                            AppConfig.instagramUrl),
                       SizedBox(height: 54.h),
                     ],
                   ),

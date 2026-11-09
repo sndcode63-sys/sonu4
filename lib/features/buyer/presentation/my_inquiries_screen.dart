@@ -9,7 +9,9 @@ import '../../../core/storage/storage_service.dart';
 import '../../../core/widgets/app_adaptive_back_button.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/network/api_service.dart';
 import '../controllers/buyer_home_controller.dart';
+import '../data/home_repository.dart';
 
 class MyInquiriesScreen extends StatefulWidget {
   const MyInquiriesScreen({super.key});
@@ -59,15 +61,19 @@ class _MyInquiriesScreenState extends State<MyInquiriesScreen> {
       if (found != null) {
         matched.add(found);
       } else {
-        matched.add({
-          '_id': id,
-          'propertyId': id,
-          'title': 'Property Inquiry #$id',
-          'locality': 'DigiNiwas Partner Network',
-          'city': 'Verified Property',
-          'price': 'Price on Request',
-          'isPlaceholder': true,
-        });
+        // Not in the cached feeds -> fetch the real property from the API.
+        // If the API can't return it either, the entry is skipped (no fake card).
+        try {
+          final fetched =
+          await HomeRepository(ApiService.instance).getPropertyById(id);
+          if (fetched != null && fetched.isNotEmpty) {
+            matched.add({
+              '_id': fetched['_id'] ?? id,
+              'propertyId': fetched['propertyId'] ?? id,
+              ...fetched,
+            });
+          }
+        } catch (_) {}
       }
     }
 
@@ -138,37 +144,37 @@ class _MyInquiriesScreenState extends State<MyInquiriesScreen> {
           onRefresh: _loadInquiries,
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF007A5E)),
-                )
+            child: CircularProgressIndicator(color: Color(0xFF007A5E)),
+          )
               : _inquiredProperties.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.w),
-                        child: AppEmptyState(
-                          type: EmptyStateType.search,
-                          title: 'No Inquiries Yet',
-                          message:
-                              'When you connect with a partner or request details for any property, your inquiry status will appear here.',
-                          actionLabel: 'Explore Properties',
-                          onAction: () {
-                            if (Navigator.canPop(context)) {
-                              Navigator.pop(context);
-                            }
-                            _homeController.changeBottomNavIndex(1); // Explore tab
-                          },
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 32.h),
-                      itemCount: _inquiredProperties.length,
-                      separatorBuilder: (_, __) => SizedBox(height: 12.h),
-                      itemBuilder: (context, index) {
-                        final prop = _inquiredProperties[index];
-                        return _buildInquiryCard(prop);
-                      },
-                    ),
+              ? Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: AppEmptyState(
+                type: EmptyStateType.search,
+                title: 'No Inquiries Yet',
+                message:
+                'When you connect with a partner or request details for any property, your inquiry status will appear here.',
+                actionLabel: 'Explore Properties',
+                onAction: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                  _homeController.changeBottomNavIndex(1); // Explore tab
+                },
+              ),
+            ),
+          )
+              : ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 32.h),
+            itemCount: _inquiredProperties.length,
+            separatorBuilder: (_, __) => SizedBox(height: 12.h),
+            itemBuilder: (context, index) {
+              final prop = _inquiredProperties[index];
+              return _buildInquiryCard(prop);
+            },
+          ),
         ),
       ),
     );
@@ -187,10 +193,10 @@ class _MyInquiriesScreenState extends State<MyInquiriesScreen> {
       final first = images.first;
       if (first is Map) {
         imageUrl = (first['secure_url'] ??
-                first['url'] ??
-                first['imageUrl'] ??
-                first['image'] ??
-                first['path'])
+            first['url'] ??
+            first['imageUrl'] ??
+            first['image'] ??
+            first['path'])
             ?.toString();
       } else if (first is String) {
         imageUrl = first;

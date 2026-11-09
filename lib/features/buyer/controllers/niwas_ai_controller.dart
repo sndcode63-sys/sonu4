@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/storage/storage_service.dart';
 import '../data/niwas_ai_service.dart';
 import '../models/niwas_ai_models.dart';
 import '../presentation/save_properties_screen.dart';
@@ -16,6 +17,10 @@ class NiwasAiController extends GetxController {
   final RxBool snapshotLoading = false.obs;
   final RxnString currentMode = RxnString();
 
+  // History & Sessions State
+  final RxList<Map<String, dynamic>> savedSessions = <Map<String, dynamic>>[].obs;
+  final RxBool isLoadingHistory = false.obs;
+
   final ScrollController scrollController = ScrollController();
   final TextEditingController textController = TextEditingController();
 
@@ -24,17 +29,29 @@ class NiwasAiController extends GetxController {
   static const String modeExploreLocality = 'explore_locality';
   static const String modePriceTrends = 'price_trends';
 
-  final List<String> quickSuggestions = [
-    'Find 2 BHK in Indore under ₹30K',
-    'Show all available rental properties',
-    'Compare properties in Vijay Nagar',
-    'Commercial properties for lease',
-    'Best residential localities in Indore',
-  ];
+  /// Quick prompts – city comes from the buyer's real (GPS / API) location
+  List<String> get quickSuggestions {
+    String city = '';
+    if (Get.isRegistered<BuyerHomeController>()) {
+      final loc = Get.find<BuyerHomeController>().userCurrentLocation.value;
+      if (loc.isNotEmpty && loc != 'Fetching location...' && loc != 'India') {
+        city = loc.split(',').first.trim();
+      }
+    }
+    final inCity = city.isNotEmpty ? ' in $city' : ' near me';
+    return [
+      'Find 2 BHK$inCity',
+      'Show all available rental properties$inCity',
+      'Compare properties$inCity',
+      'Commercial properties for lease$inCity',
+      'Best residential localities$inCity',
+    ];
+  }
 
   @override
   void onInit() {
     super.onInit();
+    loadSavedSessions();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = Get.arguments;
       if (args is Map) {
@@ -53,6 +70,64 @@ class NiwasAiController extends GetxController {
     scrollController.dispose();
     textController.dispose();
     super.onClose();
+  }
+
+  Future<void> loadSavedSessions() async {
+    try {
+      final list = await StorageService.instance.getSavedAiSessions();
+      savedSessions.value = list;
+    } catch (_) {}
+  }
+
+  /// Loads full conversation history for a given session using GET /v1/sessions/{session_id}/history
+  Future<void> loadSessionHistory(String sessId) async {
+    if (sessId.trim().isEmpty) return;
+    isLoadingHistory.value = true;
+    sessionId.value = sessId.trim();
+    messages.clear();
+
+    try {
+      final rawList = await _aiService.getSessionHistory(sessId.trim());
+      if (rawList.isNotEmpty) {
+        final parsedMessages = <AiChatMessage>[];
+        for (int i = 0; i < rawList.length; i++) {
+          final item = rawList[i];
+          final role = item['role']?.toString() ?? (item['sender'] == 'user' ? 'user' : 'assistant');
+          final content = item['content']?.toString() ?? item['message']?.toString() ?? item['reply']?.toString() ?? '';
+          
+          List<AiPropertyCard> propertyCards = [];
+          if (item['properties'] is List) {
+            propertyCards = (item['properties'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map((p) => AiPropertyCard.fromJson(p))
+                .toList();
+          }
+
+          List<AiSource> sources = [];
+          if (item['sources'] is List) {
+            sources = (item['sources'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map((s) => AiSource.fromJson(s))
+                .toList();
+          }
+
+          parsedMessages.add(
+            AiChatMessage(
+              id: item['id']?.toString() ?? item['_id']?.toString() ?? '${sessId}_$i',
+              role: role,
+              content: content,
+              properties: propertyCards,
+              sources: sources,
+            ),
+          );
+        }
+        messages.value = parsedMessages;
+      }
+    } catch (_) {
+    } finally {
+      isLoadingHistory.value = false;
+      scrollToBottom();
+    }
   }
 
   void scrollToBottom() {
@@ -278,6 +353,9 @@ class NiwasAiController extends GetxController {
       final newSessionId = result['session_id']?.toString();
       if (newSessionId != null && newSessionId.isNotEmpty) {
         sessionId.value = newSessionId;
+        // Persist session locally and update history
+        await StorageService.instance.saveAiSession(sessionId: newSessionId, title: text);
+        await loadSavedSessions();
       }
 
       final assistantMsg = AiChatMessage(
@@ -303,16 +381,20 @@ class NiwasAiController extends GetxController {
     scrollToBottom();
   }
 
-
-
   Future<void> startNewChat() async {
-    final currentSession = sessionId.value;
-    if (currentSession != null && currentSession.isNotEmpty) {
-      _aiService.deleteSession(currentSession);
-    }
     sessionId.value = null;
     currentMode.value = null;
     messages.clear();
+  }
+
+  Future<void> deleteSession(String sessId) async {
+    if (sessId.trim().isEmpty) return;
+    await _aiService.deleteSession(sessId);
+    await StorageService.instance.removeAiSession(sessId);
+    await loadSavedSessions();
+    if (sessionId.value == sessId) {
+      startNewChat();
+    }
   }
 
   Future<void> fetchPropertySnapshot(String propertyId, BuildContext context) async {
@@ -324,4 +406,3 @@ class NiwasAiController extends GetxController {
     activeSnapshot.value = snapshot;
   }
 }
-

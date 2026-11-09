@@ -162,7 +162,7 @@ class AiPropertyCard {
     final parts = [locality, city].where((p) => p != null && p.trim().isNotEmpty).toList();
     if (parts.isNotEmpty) return parts.join(', ');
     if (address != null && address!.trim().isNotEmpty) return address!;
-    return 'Indore';
+    return '';
   }
 }
 

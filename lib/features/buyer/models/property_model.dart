@@ -220,8 +220,8 @@ class PropertyModel {
       'constructionStatus',
       'propertyStatus',
     ]);
-    if (status.isEmpty || status.toLowerCase() == 'null') {
-      status = 'Ready to Move';
+    if (status.toLowerCase() == 'null') {
+      status = '';
     }
 
     final verificationStatus = _firstNonEmptyString(json, [
@@ -336,7 +336,7 @@ class PropertyModel {
       carpetArea: null,
       superBuiltUpArea: null,
       parking: '',
-      status: 'Ready to Move',
+      status: '',
       verificationStatus: '',
       isVerified: false,
       reraNumber: '',
@@ -438,7 +438,7 @@ class PropertyModel {
     return s.contains('under') || s.contains('construction') || s.contains('upcoming');
   }
 
-    bool get isReadyToMove => !isUnderConstruction;
+  bool get isReadyToMove => !isUnderConstruction;
 
   /// Clean Property Verification Status (e.g. "Verified")
   String get propertyVerificationStatus {

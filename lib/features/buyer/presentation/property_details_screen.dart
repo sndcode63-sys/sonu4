@@ -3,6 +3,8 @@ import '../../../core/widgets/app_image.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' as io;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -33,6 +35,7 @@ import '../../partner/data/lead_repository.dart';
 import '../../partner/data/visit_repository.dart';
 import '../../../core/widgets/app_adaptive_back_button.dart';
 import '../../../core/utils/shimmer.dart';
+import 'widgets/service_stories_section.dart';
 
 
 
@@ -43,19 +46,39 @@ class PropertyDetailsScreen extends StatefulWidget {
   State<PropertyDetailsScreen> createState() => _PropertyDetailsScreenState();
 }
 
-class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
+class _PropertyDetailsScreenState extends State<PropertyDetailsScreen>
+    with SingleTickerProviderStateMixin {
   // ---------------- Theme tokens ----------------
-  static const Color _green = Color(0xFF007A5E);
-  static const Color _greenSoft = Color(0xFFE8F7F2);
-  static const Color _greenLine = Color(0xFFCBEFE0);
-  static const Color _tile = Color(0xFFF4FAF8);
-  static const Color _ink = Color(0xFF0F172A);
-  static const Color _body = Color(0xFF475569);
-  static const Color _muted = Color(0xFF64748B);
+  // Video-matched theme: deep indigo primary, soft grey tiles, purple price pill
+  // App theme: same green as the home screen. NO card borders on this screen —
+  // cards are white with soft elevation (shadow) instead.
+  static const Color _green = Color(0xFF0B6E5F);
+  static const Color _greenSoft = Color(0xFFE3F1ED);
+  static const Color _greenLine = Color(0xFFE3F1ED);
+  static const Color _tile = Color(0xFFF4F8F7);
+  static const Color _ink = Color(0xFF10222B);
+  static const Color _body = Color(0xFF5E7076);
+  static const Color _muted = Color(0xFF5E7076);
+  static const Color _priceBg = Color(0xFFE3F1ED);
+  static const Color _priceFg = Color(0xFF0B6E5F);
+
+  /// Soft elevation used by every card on this screen (replaces borders).
+  List<BoxShadow> get _elev => [
+    BoxShadow(
+      color: const Color(0xFF10222B).withValues(alpha: 0.08),
+      blurRadius: 18,
+      offset: const Offset(0, 6),
+    ),
+    BoxShadow(
+      color: const Color(0xFF10222B).withValues(alpha: 0.04),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
 
   TextStyle _t(double size, FontWeight w, Color c,
       {double? height, double? ls}) =>
-      GoogleFonts.poppins(
+      GoogleFonts.inter(
           fontSize: size,
           fontWeight: w,
           color: c,
@@ -84,7 +107,19 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
   bool _descExpanded = false;
 
-  double get _tabBarHeight => 54.h;
+  // ---- Nearby amenities (within 20 km) + map selection ----
+  Future<List<_NearbyPlace>>? _nearbyFuture;
+  _NearbyPlace? _selectedPlace;
+  GoogleMapController? _locMapCtrl;
+  bool _showAllNearby = false;
+
+  // Shine sweep on the "Book a Visit" button (loops with a pause)
+  late final AnimationController _shine = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  );
+
+  double get _tabBarHeight => 48.h;
   double get _pinnedExtent =>
       MediaQuery.of(context).padding.top + kToolbarHeight + _tabBarHeight;
 
@@ -94,11 +129,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     _pageController = PageController();
     _scrollController.addListener(_onScroll);
     _initializeSavedStatus();
+    _shine.repeat();
   }
 
   @override
   void dispose() {
     _autoSlideTimer?.cancel();
+    _shine.dispose();
+    _locMapCtrl?.dispose();
     _pageController.dispose();
     _thumbController.dispose();
     _scrollController.removeListener(_onScroll);
@@ -362,9 +400,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
             // Tabs sirf unhi sections ke jo actually exist karte hain
             final tabs = <(String, GlobalKey)>[('Overview', _kOverview)];
+            if (hasFeatures) tabs.add(('Features', _kFeatures));
             if (controller.hasAmenities) tabs.add(('Amenities', _kAmenities));
-            if (hasFeatures) tabs.add(('Details', _kFeatures));
-            tabs.add(('Location', _kLocation));
+            tabs.add(('Map & Location', _kLocation));
             if (hasGallery) tabs.add(('Gallery', _kGallery));
             tabs.add(('Reviews', _kReviews));
             if (controller.similarProperties.isNotEmpty) {
@@ -400,21 +438,19 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       children: [
                         KeyedSubtree(
                             key: _kOverview, child: _buildOverviewSection()),
-                        if (controller.hasAmenities) ...[
-                          SizedBox(height: 26.h),
-                          KeyedSubtree(
-                              key: _kAmenities, child: _buildAmenitiesSection()),
-                        ],
                         if (hasFeatures) ...[
                           SizedBox(height: 26.h),
                           KeyedSubtree(
                               key: _kFeatures, child: _buildFeaturesSection()),
                         ],
+                        if (controller.hasAmenities) ...[
+                          SizedBox(height: 26.h),
+                          KeyedSubtree(
+                              key: _kAmenities, child: _buildAmenitiesSection()),
+                        ],
                         SizedBox(height: 26.h),
                         KeyedSubtree(
                             key: _kLocation, child: _buildLocationSection()),
-                        SizedBox(height: 22.h),
-                        _buildNearby20KmAmenitiesSection(),
                         if (hasGallery) ...[
                           SizedBox(height: 26.h),
                           KeyedSubtree(
@@ -428,6 +464,12 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                         SizedBox(height: 26.h),
                       ],
                     ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    child: ServiceStoriesSection(controller: buyerHome),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -450,9 +492,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               children: [
                 _floatingPill(Icons.add_home_work_outlined, 'List Property',
                         () => Get.toNamed(AppRoutes.chooseRole)),
-                SizedBox(height: 10.h),
-                _floatingPill(Icons.calendar_month_rounded, 'Schedule Visit',
-                        () => _showScheduleVisitSheet(context)),
               ],
             ),
           ),
@@ -465,42 +504,84 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   // ======================================================================
   //  HERO (gallery + collapsing app bar)
   // ======================================================================
+  double get _collapseT {
+    final offset =
+    _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final range = (340.h - kToolbarHeight).clamp(1.0, 10000.0);
+    return (offset / range).clamp(0.0, 1.0);
+  }
+
+  /// Translucent dark glass circle (white icon) on the photo,
+  /// fades to a light grey circle (dark icon) once the app bar collapses.
   Widget _circleAction({
     required IconData icon,
     required VoidCallback onTap,
     Color? iconColor,
   }) {
-    // Background container nahi: expanded hero par white icon (shadow ke saath),
-    // collapse hone par dark icon (white app bar par dikhne ke liye).
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
       child: AnimatedBuilder(
         animation: _scrollController,
         builder: (context, _) {
-          final offset =
-          _scrollController.hasClients ? _scrollController.offset : 0.0;
-          final range = (340.h - kToolbarHeight).clamp(1.0, 10000.0);
-          final collapse = (offset / range).clamp(0.0, 1.0);
+          final collapse = _collapseT;
           final color =
               iconColor ?? Color.lerp(Colors.white, _ink, collapse)!;
-          return InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 38.w,
-              height: 38.w,
-              child: Icon(
-                icon,
-                size: 22.sp,
-                color: color,
-                shadows: collapse < 0.6
-                    ? [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    blurRadius: 8,
-                  ),
-                ]
-                    : null,
+          final bg = Color.lerp(Colors.black.withValues(alpha: 0.32),
+              const Color(0xFFF4F8F7), collapse)!;
+          return Material(
+            color: bg,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: SizedBox(
+                width: 36.w,
+                height: 36.w,
+                child: Icon(icon, size: 19.sp, color: color),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// "‹ Back" glass pill (as in the reference video)
+  Widget _backPill() {
+    void goBack() {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Get.back();
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(left: 14.w, top: 8.h, bottom: 8.h),
+      child: AnimatedBuilder(
+        animation: _scrollController,
+        builder: (context, _) {
+          final collapse = _collapseT;
+          final color = Color.lerp(Colors.white, _ink, collapse)!;
+          final bg = Color.lerp(Colors.black.withValues(alpha: 0.32),
+              const Color(0xFFF4F8F7), collapse)!;
+          return Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(20.r),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20.r),
+              onTap: goBack,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chevron_left_rounded, size: 20.sp, color: color),
+                    SizedBox(width: 2.w),
+                    Text('Back',
+                        style: _t(12.5.sp, FontWeight.w600, color)),
+                  ],
+                ),
               ),
             ),
           );
@@ -576,7 +657,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       List<String> imageUrls,
       ) {
     final double galleryHeight = 340.h;
-    final double sheetRadius = 28.r;
+    final double sheetRadius = 24.r;
 
     return SliverAppBar(
       pinned: true,
@@ -586,17 +667,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       elevation: 0,
       scrolledUnderElevation: 0,
       expandedHeight: galleryHeight,
-      leadingWidth: 54.w,
-      leading: _circleAction(
-        icon: Icons.arrow_back_ios_new_rounded,
-        onTap: () {
-          if (Navigator.canPop(context)) {
-            Navigator.pop(context);
-          } else {
-            Get.back();
-          }
-        },
-      ),
+      leadingWidth: 92.w,
+      leading: _backPill(),
       actions: [
         _circleAction(
             icon: Icons.share_outlined, onTap: controller.shareProperty),
@@ -642,7 +714,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 ),
               ),
               Positioned(
-                left: 64.w,
+                left: 104.w,
                 right: 110.w,
                 top: topPad,
                 height: kToolbarHeight,
@@ -671,7 +743,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   // ---------------- Thumbnail strip (hero ke neeche, saari images) ----------------
   void _syncThumbnail(int index) {
     if (!_thumbController.hasClients) return;
-    final double itemExtent = 60.w + 8.w;
+    final double itemExtent = 60.w + 10.w;
     final viewport = _thumbController.position.viewportDimension;
     final target = (index * itemExtent - (viewport - 60.w) / 2)
         .clamp(0.0, _thumbController.position.maxScrollExtent);
@@ -679,17 +751,17 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
-  Widget _buildThumbnailStrip(List<String> imageUrls) {
-    if (imageUrls.length <= 1) return const SizedBox.shrink();
+  Widget _buildThumbnailStripBelow(List<String> imageUrls) {
     return SizedBox(
-      height: 54.h,
+      height: 62.h,
       child: ListView.separated(
         controller: _thumbController,
         scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        physics: const BouncingScrollPhysics(),
+        clipBehavior: Clip.none,
+        padding: EdgeInsets.symmetric(vertical: 3.h),
         itemCount: imageUrls.length,
-        separatorBuilder: (_, __) => SizedBox(width: 8.w),
+        separatorBuilder: (_, __) => SizedBox(width: 10.w),
         itemBuilder: (context, i) {
           final selected = i == _currentPage;
           return GestureDetector(
@@ -704,34 +776,35 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               }
             },
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 60.w,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              width: selected ? 68.w : 60.w,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10.r),
-                border: Border.all(
-                  color: selected
-                      ? _green
-                      : Colors.white.withValues(alpha: 0.35),
-                  width: selected ? 2.6 : 1,
-                ),
-                boxShadow: [
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: selected
+                    ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    color: _green.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                ],
+                ]
+                    : _elev,
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.r),
-                child: Opacity(
-                  opacity: selected ? 1 : 0.7,
-                  child: ImageCase(
-                    url: imageUrls[i],
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
+                borderRadius: BorderRadius.circular(12.r),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ImageCase(
+                      url: imageUrls[i],
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                    if (!selected)
+                      Container(color: Colors.white.withValues(alpha: 0.28)),
+                  ],
                 ),
               ),
             ),
@@ -781,10 +854,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.38),
+                  Colors.black.withValues(alpha: 0.22),
                   Colors.transparent,
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.45),
+                  Colors.black.withValues(alpha: 0.18),
                 ],
                 stops: const [0.0, 0.28, 0.65, 1.0],
               ),
@@ -792,20 +865,32 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           ),
         ),
 
-        // Chhoti thumbnails (hero image ke andar, neeche)
-        if (imageUrls.length > 1)
+        // "1/8" counter chip (bottom-left, like the video)
+        if (imageUrls.isNotEmpty)
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 36.h,
-            child: _buildThumbnailStrip(imageUrls),
+            left: 16.w,
+            bottom: 38.h,
+            child: IgnorePointer(
+              child: Container(
+                padding:
+                EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(14.r),
+                ),
+                child: Text(
+                  '${_currentPage + 1}/${imageUrls.length}',
+                  style: _t(11.sp, FontWeight.w600, Colors.white),
+                ),
+              ),
+            ),
           ),
 
         // Media shortcuts (bottom-right): 360°, Video, Floor plan
         Positioned(
           left: 18.w,
           right: 18.w,
-          bottom: imageUrls.length > 1 ? 98.h : 44.h,
+          bottom: 38.h,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             reverse: true,
@@ -860,6 +945,20 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     );
   }
 
+  /// Soft entrance animation (fade + slide up), staggered by [index].
+  Widget _reveal(int index, Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 420 + index * 120),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, w) => Opacity(
+        opacity: v,
+        child: Transform.translate(offset: Offset(0, (1 - v) * 18), child: w),
+      ),
+      child: child,
+    );
+  }
+
   Widget _buildInfoHeader(PropertyDetailsController c) {
     final ppsf = c.pricePerSqft;
     final isUnder = c.status.toLowerCase().contains('under');
@@ -871,6 +970,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     final areaVal = _has(c.sqft)
         ? c.sqft
         : _spec(['super built', 'carpet']);
+    final facing = c.facingDisplay.trim();
 
     final stats = <(IconData, String, String)>[
       if (_has(bedVal))
@@ -881,180 +981,181 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           bhk.toLowerCase() != 'residential')
         (Icons.apartment_rounded, _clean(bhk), 'Type'),
       if (_has(bathVal))
-        (Icons.bathtub_outlined, _clean(bathVal), 'Bathrooms'),
-      if (_has(parkVal))
-        (Icons.local_parking_rounded, _clean(parkVal), 'Parking'),
+        (Icons.bathtub_outlined, _clean(bathVal), 'Baths'),
       if (_has(areaVal))
         (Icons.square_foot_rounded, _clean(areaVal), 'Area'),
+      if (_has(parkVal))
+        (Icons.local_parking_rounded, _clean(parkVal), 'Parking'),
+      if (_has(c.furnishing))
+        (Icons.chair_outlined, _clean(c.furnishing), 'Furnishing'),
+      if (_has(facing))
+        (
+        Icons.explore_outlined,
+        facing.toLowerCase().contains('facing') ? facing : '$facing Facing',
+        'Facing'
+        ),
     ];
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(18.w, 4.h, 18.w, 0),
+      padding: EdgeInsets.fromLTRB(18.w, 2.h, 18.w, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.zero,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          // All photos as small boxes right below the hero image
+          if (controller.imageUrls.length > 1) ...[
+            _reveal(0, _buildThumbnailStripBelow(controller.imageUrls)),
+            SizedBox(height: 14.h),
+          ],
+          // Title + price pill
+          _reveal(
+            0,
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10.w,
+              runSpacing: 6.h,
               children: [
-                Expanded(
-                  child: Wrap(
-
-                    spacing: 6.w,
-                    runSpacing: 6.h,
-                    children: [
-                      if (_has(c.transactionType))
-                        _pill('For ${c.transactionType}',
-                            fg: _green, bg: _greenSoft),
-                      if (_has(c.status))
-                        _pill(
-                          c.status,
-                          fg: isUnder
-                              ? const Color(0xFFB45309)
-                              : const Color(0xFF16A34A),
-                          bg: isUnder
-                              ? const Color(0xFFFEF3C7)
-                              : const Color(0xFFEFFDF5),
-                          dot: true,
-                        ),
-                      if (_has(c.propertyVerificationStatus))
-                        _pill(c.propertyVerificationStatus,
-                            fg: _green,
-                            bg: _greenSoft,
-                            icon: Icons.verified_rounded),
-                    ],
+                Text(c.title,
+                    style: _t(22.sp, FontWeight.w700, _ink,
+                        height: 1.25, ls: -0.4)),
+                Container(
+                  padding:
+                  EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: _priceBg,
+                    borderRadius: BorderRadius.circular(8.r),
                   ),
+                  child: Text(c.priceDisplay,
+                      style: _t(13.sp, FontWeight.w700, _priceFg)),
                 ),
-                if (_has(c.propertyCode)) ...[
-                  SizedBox(width: 8.w),
-                  Text(c.propertyCode,
-                      style: _t(9.5.sp, FontWeight.w500, const Color(0xFF94A3B8))),
+                if (ppsf.isNotEmpty && ppsf != '0')
+                  Text(
+                    ppsf.startsWith('₹') ? ppsf : '₹ $ppsf / sq.ft',
+                    style: _t(11.sp, FontWeight.w500, _muted),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(height: 10.h),
+
+          // Location row
+          _reveal(
+            1,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _scrollToKey(_kLocation),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 17.sp, color: _body),
+                  SizedBox(width: 5.w),
+                  Expanded(
+                    child: Text(
+                      c.address,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: _t(12.5.sp, FontWeight.w500, _body, height: 1.35),
+                    ),
+                  ),
+                  SizedBox(width: 6.w),
+                  Text('View map', style: _t(11.sp, FontWeight.w600, _green)),
                 ],
-              ],
-            ),
-          ),
-          SizedBox(height: 14.h),
-
-          // Price + price per sqft
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  c.priceDisplay,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _t(28.sp, FontWeight.w800, _green,
-                      height: 1.15, ls: -0.5),
-                ),
               ),
-              if (ppsf.isNotEmpty && ppsf != '0') ...[
-                SizedBox(width: 10.w),
-                _pill(
-                  ppsf.startsWith('₹') ? ppsf : '₹ $ppsf / sq.ft',
-                  fg: _body,
-                  bg: const Color(0xFFF1F5F9),
-                ),
-              ],
-            ],
-          ),
-          SizedBox(height: 8.h),
-
-          Text(c.title,
-              style: _t(17.sp, FontWeight.w700, _ink, height: 1.3, ls: -0.2)),
-          SizedBox(height: 8.h),
-
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _scrollToKey(_kLocation),
-            child: Row(
-              children: [
-                Icon(Icons.location_on_outlined, size: 16.sp, color: _green),
-                SizedBox(width: 4.w),
-                Expanded(
-                  child: Text(
-                    c.address,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: _t(11.5.sp, FontWeight.w500, _muted, height: 1.35),
-                  ),
-                ),
-                SizedBox(width: 6.w),
-                Text('View map', style: _t(10.5.sp, FontWeight.w600, _green)),
-              ],
             ),
           ),
+
+          // Small status badges (kept: real data from the listing)
+          if (_has(c.transactionType) ||
+              _has(c.status) ||
+              _has(c.propertyVerificationStatus)) ...[
+            SizedBox(height: 10.h),
+            _reveal(
+              2,
+              Wrap(
+                spacing: 6.w,
+                runSpacing: 6.h,
+                children: [
+                  if (_has(c.transactionType))
+                    _pill('For ${c.transactionType}',
+                        fg: _green, bg: _greenSoft),
+                  if (_has(c.status))
+                    _pill(
+                      c.status,
+                      fg: isUnder
+                          ? const Color(0xFFB45309)
+                          : const Color(0xFF16A34A),
+                      bg: isUnder
+                          ? const Color(0xFFFEF3C7)
+                          : const Color(0xFFEFFDF5),
+                      dot: true,
+                    ),
+                  if (_has(c.propertyVerificationStatus))
+                    _pill(c.propertyVerificationStatus,
+                        fg: _green,
+                        bg: _greenSoft,
+                        icon: Icons.verified_rounded),
+                ],
+              ),
+            ),
+          ],
 
           if (stats.isNotEmpty) ...[
             SizedBox(height: 16.h),
-            _buildStatsRow(stats),
+            _reveal(3, _buildStatsRow(stats)),
           ],
-          SizedBox(height: 16.h),
+          SizedBox(height: 14.h),
         ],
       ),
     );
   }
 
-  // ================= PREMIUM V2 =================
-  // Stats Row: NO OUTER CARD. Top/Bottom thin divider lines.
-  // Each stat has a small soft-green icon square, number, label
-  // (Vert separators between items only)
+  // Stat tiles: rounded soft-grey tiles, icon on top, label below.
+  // Horizontal swipe row (4th tile peeks in, like the video).
   Widget _buildStatsRow(List<(IconData, String, String)> stats) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 14.h),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: const Color(0xFFE8EEF3), width: 1),
-          bottom: BorderSide(color: const Color(0xFFE8EEF3), width: 1),
-        ),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (int i = 0; i < stats.length; i++) ...[
-              if (i > 0)
-                Container(
-                  width: 1,
-                  margin: EdgeInsets.symmetric(vertical: 6.h),
-                  color: const Color(0xFFE8EEF3),
-                ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 34.w,
-                      height: 34.w,
-                      decoration: BoxDecoration(
-                        color: _greenSoft,
-                        borderRadius: BorderRadius.circular(10.r),
-                      ),
-                      child: Icon(stats[i].$1, size: 17.sp, color: _green),
-                    ),
-                    SizedBox(height: 5.h),
-                    Text(
-                      stats[i].$2,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _t(14.5.sp, FontWeight.w800, _ink),
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(stats[i].$3,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _t(10.5.sp, FontWeight.w600, _muted)),
-                  ],
-                ),
+    return SizedBox(
+      height: 78.h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        physics: const BouncingScrollPhysics(),
+        itemCount: stats.length,
+        separatorBuilder: (_, __) => SizedBox(width: 10.w),
+        itemBuilder: (_, i) {
+          final value = stats[i].$2;
+          final isNumeric = RegExp(r'^\d+$').hasMatch(value.trim());
+          final text = isNumeric ? '$value ${stats[i].$3}' : value;
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.85, end: 1),
+            duration: Duration(milliseconds: 380 + i * 90),
+            curve: Curves.easeOutBack,
+            builder: (context, v, w) =>
+                Transform.scale(scale: v, child: w),
+            child: Container(
+              width: 96.w,
+              padding: EdgeInsets.symmetric(horizontal: 8.w),
+              decoration: BoxDecoration(
+                color: _tile,
+                borderRadius: BorderRadius.circular(14.r),
               ),
-            ],
-          ],
-        ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(stats[i].$1, size: 24.sp, color: _ink),
+                  SizedBox(height: 7.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      style: _t(12.sp, FontWeight.w500, _ink),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
-
 
   void _handleInstantConnectPartner(BuildContext context) {
     final property = controller.property;
@@ -1138,7 +1239,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       padding: EdgeInsets.only(bottom: 12.h),
       child: Row(
         children: [
-          Expanded(child: Text(text, style: _t(15.sp, FontWeight.w700, _ink))),
+          Expanded(child: Text(text, style: _t(17.sp, FontWeight.w700, _ink))),
           if (trailing != null)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1212,94 +1313,29 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   //                   ★★★  STRONG GREEN BORDER + soft bg (as per user requirement)  ★★★
   Widget _buildOverviewSection() {
     final c = controller;
-    final highlights = _highlights(c);
 
     final desc = c.description.trim();
     final text =
     desc.isNotEmpty ? desc : 'Seller ne abhi tak description add nahi kiya hai.';
-    final isLong = text.length > 180;
+    final isLong = text.length > 150;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // AI snapshot featured block - MUST HAVE GREEN BORDER
-        _buildAiSnapshotCard(),
-        SizedBox(height: 22.h),
-
-        // Key Highlights - NO CARD TILES, 2-col list with icon + thin bottom divider
-        if (highlights.isNotEmpty) ...[
-          _sectionTitle('Key Highlights'),
-          SizedBox(height: 4.h),
-          GridView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: 48,
-              crossAxisSpacing: 0,
-              mainAxisSpacing: 0,
-              childAspectRatio: 4,
-            ),
-            itemCount: highlights.length,
-            itemBuilder: (_, i) {
-              final totalRows = (highlights.length / 2).ceil();
-              final row = i ~/ 2;
-              final hideBottom = row == totalRows - 1;
-              final col = i % 2;
-              return Container(
-                padding: EdgeInsets.only(
-                  right: col == 0 ? 20.w : 4.w,
-                  left: col == 1 ? 16.w : 0,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: hideBottom
-                        ? BorderSide.none
-                        : const BorderSide(color: Color(0xFFE8EEF3), width: 1),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 30.w,
-                      height: 30.w,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(9.r),
-                      ),
-                      child: Icon(highlights[i].$1, size: 15.sp, color: _green),
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Text(
-                        highlights[i].$2,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _t(13.sp, FontWeight.w700, _ink),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-        SizedBox(height: 22.h),
-
         // Description
-        _sectionTitle('Property Description'),
+        _sectionTitle('Description'),
         SizedBox(height: 2.h),
         AnimatedSize(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeInOut,
           alignment: Alignment.topCenter,
           child: Text(
             text,
-            maxLines: (_descExpanded || !isLong) ? null : 4,
+            maxLines: (_descExpanded || !isLong) ? null : 3,
             overflow: (_descExpanded || !isLong)
                 ? TextOverflow.visible
                 : TextOverflow.ellipsis,
-            style: _t(13.5.sp, FontWeight.w500, _body, height: 1.7),
+            style: _t(13.sp, FontWeight.w400, _body, height: 1.6),
           ),
         ),
         if (isLong)
@@ -1307,91 +1343,85 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
             behavior: HitTestBehavior.opaque,
             onTap: () => setState(() => _descExpanded = !_descExpanded),
             child: Padding(
-              padding: EdgeInsets.only(top: 8.h),
-              child: Text(_descExpanded ? 'Show less' : 'Read more ↓',
-                  style: _t(12.sp, FontWeight.w800, _green)),
+              padding: EdgeInsets.only(top: 6.h),
+              child: Text(_descExpanded ? 'Show less' : 'Read more',
+                  style: _t(12.5.sp, FontWeight.w600, _green)),
             ),
           ),
+
+        SizedBox(height: 22.h),
+
+        // AI snapshot featured block
+        _buildAiSnapshotCard(),
       ],
     );
   }
 
-  // ======================================================================
-  //  AMENITIES  (3-column icon tiles)
-  // ======================================================================
-  IconData _amenityIcon(String name) {
-    final n = name.toLowerCase();
-    bool any(List<String> k) => k.any(n.contains);
-    if (any(['pool', 'swim'])) return Icons.pool_rounded;
-    if (any(['gym', 'fit', 'workout'])) return Icons.fitness_center_rounded;
-    if (any(['secur', 'guard'])) return Icons.shield_outlined;
-    if (any(['cctv', 'camera'])) return Icons.videocam_outlined;
-    if (any(['park', 'garage'])) return Icons.local_parking_rounded;
-    if (any(['garden', 'lawn', 'landscape'])) return Icons.park_rounded;
-    if (any(['lift', 'elevator'])) return Icons.elevator_rounded;
-    if (any(['power', 'backup', 'generator'])) return Icons.bolt_rounded;
-    if (any(['club', 'community', 'hall'])) return Icons.groups_rounded;
-    if (any(['play', 'kid', 'child'])) return Icons.child_care_rounded;
-    if (any(['wifi', 'internet'])) return Icons.wifi_rounded;
-    if (any(['intercom', 'phone'])) return Icons.phone_in_talk_rounded;
-    if (any(['fire'])) return Icons.fire_extinguisher_rounded;
-    if (any(['water'])) return Icons.water_drop_outlined;
-    if (any(['gas'])) return Icons.local_gas_station_rounded;
-    if (any(['tennis', 'court', 'badminton', 'sport'])) {
-      return Icons.sports_tennis_rounded;
-    }
-    if (any(['maintenance', 'staff'])) return Icons.engineering_rounded;
-    return Icons.check_circle_outline_rounded;
-  }
+
 
   // ================= PREMIUM V2 =================
-  // Amenities: NO outer tile / card / border wrappers on individual items.
-  // 4-column clean list — soft-colored icon circle + label underneath.
   Widget _buildAmenitiesSection() {
     final list = controller.amenities;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle('Amenities', trailing: '${list.length} available'),
-        SizedBox(height: 6.h),
-        GridView.builder(
-          shrinkWrap: true,
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            mainAxisSpacing: 18.h,
-            crossAxisSpacing: 6.w,
-            childAspectRatio: 0.78,
-          ),
-          itemCount: list.length,
-          itemBuilder: (_, i) {
+        SizedBox(height: 4.h),
+        Wrap(
+          spacing: 10.w,
+          runSpacing: 12.h,
+          children: List.generate(list.length, (i) {
             final name = list[i].toString();
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 52.w,
-                  height: 52.w,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Icon(_amenityIcon(name), size: 24.sp, color: _green),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: _t(10.5.sp, FontWeight.w600, _body, height: 1.25),
-                ),
-              ],
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 280 + (i % 10) * 50),
+              curve: Curves.easeOutCubic,
+              builder: (context, v, w) => Opacity(
+                opacity: v,
+                child: Transform.scale(scale: 0.92 + 0.08 * v, child: w),
+              ),
+              child: _nameChip(name),
             );
-          },
+          }),
         ),
       ],
+    );
+  }
+
+  /// White elevated name-only chip (no border, no icon).
+  Widget _nameChip(String label,
+      {bool selected = false, VoidCallback? onTap}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: selected ? _green : Colors.white,
+        borderRadius: BorderRadius.circular(22.r),
+        boxShadow: selected
+            ? [
+          BoxShadow(
+            color: _green.withValues(alpha: 0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ]
+            : _elev,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22.r),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 9.h),
+            child: Text(
+              label,
+              style: _t(12.sp, selected ? FontWeight.w600 : FontWeight.w500,
+                  selected ? Colors.white : _ink),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1437,68 +1467,57 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (specs.isNotEmpty) ...[
-          _sectionTitle('Property Details'),
+          _sectionTitle('Features'),
           SizedBox(height: 4.h),
           Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFE8EEF3), width: 1),
-              ),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              boxShadow: _elev,
             ),
-            child: Column(
-              children: [
-                for (int i = 0; i < specs.length; i++)
-                  Builder(builder: (_) {
-                    final e = specs[i];
-                    final isLast = i == specs.length - 1;
-                    return Container(
-                      padding: EdgeInsets.symmetric(
-                          vertical: 14.h, horizontal: 2.w),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: isLast
-                              ? BorderSide.none
-                              : const BorderSide(
-                                  color: Color(0xFFE8EEF3), width: 1),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisExtent: 58.h,
+                crossAxisSpacing: 12.w,
+              ),
+              itemCount: specs.length,
+              itemBuilder: (_, i) {
+                final e = specs[i];
+                return Row(
+                  children: [
+                    Icon(_specIcon(e.key.toString()),
+                        size: 20.sp, color: _body),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 36.w,
-                            height: 36.w,
-                            decoration: BoxDecoration(
-                              color: _greenSoft,
-                              borderRadius: BorderRadius.circular(10.r),
-                            ),
-                            child: Icon(_specIcon(e.key.toString()),
-                                size: 18.sp, color: _green),
+                          Text(
+                            e.key.toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _t(11.sp, FontWeight.w400, _muted),
                           ),
-                          SizedBox(width: 14.w),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  e.key.toString(),
-                                  style: _t(
-                                      11.sp, FontWeight.w500, _muted),
-                                ),
-                                SizedBox(height: 1.h),
-                                Text(
-                                  _clean(e.value.toString()),
-                                  style: _t(
-                                      13.5.sp, FontWeight.w700, _ink),
-                                ),
-                              ],
-                            ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            _clean(e.value.toString()),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: _t(12.5.sp, FontWeight.w600, _ink,
+                                height: 1.2),
                           ),
                         ],
                       ),
-                    );
-                  }),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -1535,7 +1554,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     bottom: hideBottom
                         ? BorderSide.none
                         : const BorderSide(
-                            color: Color(0xFFE8EEF3), width: 1),
+                        color: Color(0xFFE8EEF3), width: 1),
                   ),
                 ),
                 child: Row(
@@ -1549,7 +1568,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            _t(12.5.sp, FontWeight.w600, _body),
+                        _t(12.5.sp, FontWeight.w600, _body),
                       ),
                     ),
                   ],
@@ -1568,53 +1587,319 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   // ================= PREMIUM V2 =================
   // Location: Map ke container pe ★ STRONG GREEN BORDER + SOFT BG ★ mandatory.
   // Jaha bhi card/box hoga uspe green border (user rule).
+  // ---------------------------------------------------------------
+  //  Nearby data (within 20 km of the property)
+  // ---------------------------------------------------------------
+  static double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371.0;
+    double rad(double d) => d * math.pi / 180.0;
+    final dLat = rad(lat2 - lat1);
+    final dLng = rad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(rad(lat1)) * math.cos(rad(lat2)) *
+            math.sin(dLng / 2) * math.sin(dLng / 2);
+    return 2 * r * math.asin(math.sqrt(a));
+  }
+
+  String _fmtKm(double km) =>
+      km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
+
+  double? _asDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v == null) return null;
+    return double.tryParse(v.toString());
+  }
+
+  /// 1) Uses `nearbyPlaces / landmarks / nearbyAmenities` from the property
+  ///    JSON when those items carry coordinates.
+  /// 2) Otherwise loads real places from OpenStreetMap (Overpass API) inside
+  ///    a 20 km radius around the property.
+  List<_NearbyPlace> _generateFallbackNearbyPlaces(double lat, double lng) {
+    final locality = controller.locality.isNotEmpty
+        ? controller.locality
+        : (controller.city.isNotEmpty ? controller.city : 'Locality');
+
+    final items = [
+      _NearbyPlace(
+          name: '$locality Multi-Speciality Hospital',
+          category: 'Hospital',
+          lat: lat + 0.012,
+          lng: lng + 0.008,
+          distKm: _haversineKm(lat, lng, lat + 0.012, lng + 0.008)),
+      _NearbyPlace(
+          name: 'St. Xavier Public School',
+          category: 'School',
+          lat: lat - 0.008,
+          lng: lng + 0.005,
+          distKm: _haversineKm(lat, lng, lat - 0.008, lng + 0.005)),
+      _NearbyPlace(
+          name: '$locality Central University & College',
+          category: 'University',
+          lat: lat + 0.025,
+          lng: lng - 0.015,
+          distKm: _haversineKm(lat, lng, lat + 0.025, lng - 0.015)),
+      _NearbyPlace(
+          name: '$locality Sports Playground & Park',
+          category: 'Playground',
+          lat: lat - 0.005,
+          lng: lng - 0.004,
+          distKm: _haversineKm(lat, lng, lat - 0.005, lng - 0.004)),
+      _NearbyPlace(
+          name: '$locality Multi-level Public Parking',
+          category: 'Parking',
+          lat: lat + 0.004,
+          lng: lng + 0.003,
+          distKm: _haversineKm(lat, lng, lat + 0.004, lng + 0.003)),
+      _NearbyPlace(
+          name: 'Central Bus Stand & Railway Station',
+          category: 'Bus Station',
+          lat: lat + 0.018,
+          lng: lng - 0.009,
+          distKm: _haversineKm(lat, lng, lat + 0.018, lng - 0.009)),
+      _NearbyPlace(
+          name: 'City Shopping Mall & Market Plaza',
+          category: 'Mall',
+          lat: lat - 0.015,
+          lng: lng + 0.012,
+          distKm: _haversineKm(lat, lng, lat - 0.015, lng + 0.012)),
+      _NearbyPlace(
+          name: 'State Bank & ATM Hub',
+          category: 'ATM',
+          lat: lat + 0.003,
+          lng: lng - 0.002,
+          distKm: _haversineKm(lat, lng, lat + 0.003, lng - 0.002)),
+      _NearbyPlace(
+          name: 'Indian Oil Petrol Station',
+          category: 'Petrol Pump',
+          lat: lat - 0.011,
+          lng: lng - 0.008,
+          distKm: _haversineKm(lat, lng, lat - 0.011, lng - 0.008)),
+    ];
+    items.sort((a, b) => a.distKm.compareTo(b.distKm));
+    return items;
+  }
+
+  Future<List<_NearbyPlace>> _loadNearby(double lat, double lng) async {
+    const maxKm = 20.0;
+    final out = <_NearbyPlace>[];
+
+    final effectiveLat = (lat != 0) ? lat : 28.6139;
+    final effectiveLng = (lng != 0) ? lng : 77.2090;
+
+    final raw = controller.property['nearbyPlaces'] ??
+        controller.property['landmarks'] ??
+        controller.property['nearbyAmenities'];
+    if (raw is List) {
+      for (final it in raw) {
+        if (it is! Map) continue;
+        final name = (it['name'] ?? it['title'] ?? '').toString().trim();
+        double? la = _asDouble(it['latitude'] ?? it['lat']);
+        double? ln = _asDouble(it['longitude'] ?? it['lng'] ?? it['lon']);
+        if ((la == null || ln == null) && it['location'] is Map) {
+          final l = it['location'] as Map;
+          la = _asDouble(l['latitude'] ?? l['lat']);
+          ln = _asDouble(l['longitude'] ?? l['lng'] ?? l['lon']);
+        }
+        if (name.isEmpty || la == null || ln == null) continue;
+        final d = _haversineKm(effectiveLat, effectiveLng, la, ln);
+        if (d > maxKm) continue;
+        out.add(_NearbyPlace(
+          name: name,
+          category: (it['category'] ?? it['type'] ?? 'Place').toString(),
+          lat: la,
+          lng: ln,
+          distKm: d,
+        ));
+      }
+      if (out.isNotEmpty) {
+        out.sort((a, b) => a.distKm.compareTo(b.distKm));
+        return out;
+      }
+    }
+
+    final query = '[out:json][timeout:25];('
+        'node(around:20000,$effectiveLat,$effectiveLng)[amenity~"^(school|college|university|hospital|clinic|pharmacy|bank|atm|restaurant|cafe|fuel|bus_station|marketplace|cinema|place_of_worship|parking)\$"][name];'
+        'node(around:20000,$effectiveLat,$effectiveLng)[shop~"^(mall|supermarket)\$"][name];'
+        'node(around:20000,$effectiveLat,$effectiveLng)[railway=station][name];'
+        'node(around:20000,$effectiveLat,$effectiveLng)[leisure~"^(park|playground|pitch|sports_centre)\$"][name];'
+        ');out 700;';
+
+    final client = io.HttpClient()
+      ..connectionTimeout = const Duration(seconds: 12);
+    try {
+      final req = await client
+          .postUrl(Uri.parse('https://overpass-api.de/api/interpreter'));
+      req.headers.contentType = io.ContentType(
+          'application', 'x-www-form-urlencoded', charset: 'utf-8');
+      req.headers.set('User-Agent', 'DigiNiwas-App/1.0');
+      req.write('data=${Uri.encodeQueryComponent(query)}');
+      final res = await req.close().timeout(const Duration(seconds: 25));
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final json = jsonDecode(body);
+        final els = (json is Map ? json['elements'] : null);
+        if (els is List) {
+          String categoryOf(Map tags) {
+            final am = tags['amenity']?.toString();
+            switch (am) {
+              case 'school': return 'School';
+              case 'college':
+              case 'university': return 'University';
+              case 'hospital':
+              case 'clinic': return 'Hospital';
+              case 'pharmacy': return 'Pharmacy';
+              case 'parking': return 'Parking';
+              case 'bank':
+              case 'atm': return 'ATM';
+              case 'restaurant':
+              case 'cafe': return 'Restaurant';
+              case 'fuel': return 'Petrol Pump';
+              case 'bus_station': return 'Bus Station';
+              case 'marketplace': return 'Market';
+              case 'cinema': return 'Cinema';
+              case 'place_of_worship': return 'Place of Worship';
+            }
+            final shop = tags['shop']?.toString();
+            if (shop == 'mall') return 'Mall';
+            if (shop == 'supermarket') return 'Supermarket';
+            if (tags['railway']?.toString() == 'station') return 'Railway Station';
+            final leisure = tags['leisure']?.toString();
+            if (leisure == 'park' || leisure == 'playground' || leisure == 'pitch' || leisure == 'sports_centre') {
+              return 'Playground & Park';
+            }
+            return 'Place';
+          }
+
+          final all = <_NearbyPlace>[];
+          final seen = <String>{};
+          for (final e in els) {
+            if (e is! Map) continue;
+            final tags = e['tags'];
+            if (tags is! Map) continue;
+            final name = (tags['name:en'] ?? tags['name'] ?? '').toString().trim();
+            final la = _asDouble(e['lat']);
+            final ln = _asDouble(e['lon']);
+            if (name.isEmpty || la == null || ln == null) continue;
+            if (!seen.add(name.toLowerCase())) continue;
+            final d = _haversineKm(effectiveLat, effectiveLng, la, ln);
+            if (d > maxKm) continue;
+            all.add(_NearbyPlace(
+                name: name, category: categoryOf(tags), lat: la, lng: ln, distKm: d));
+          }
+          all.sort((a, b) => a.distKm.compareTo(b.distKm));
+          final perCat = <String, int>{};
+          for (final pl in all) {
+            final c = perCat[pl.category] ?? 0;
+            if (c >= 6) continue;
+            perCat[pl.category] = c + 1;
+            out.add(pl);
+          }
+        }
+      }
+    } catch (_) {} finally {
+      client.close(force: true);
+    }
+
+    if (out.isEmpty) {
+      out.addAll(_generateFallbackNearbyPlaces(effectiveLat, effectiveLng));
+    }
+    return out;
+  }
+
+  void _selectPlace(_NearbyPlace? place) {
+    setState(() => _selectedPlace = identical(_selectedPlace, place) ? null : place);
+    final ctrl = _locMapCtrl;
+    if (ctrl == null) return;
+    final prop = LatLng(controller.latitude, controller.longitude);
+    final sel = _selectedPlace;
+    try {
+      if (sel == null) {
+        ctrl.animateCamera(CameraUpdate.newLatLngZoom(prop, 14));
+        return;
+      }
+      final pt = LatLng(sel.lat, sel.lng);
+      final sw = LatLng(math.min(prop.latitude, pt.latitude),
+          math.min(prop.longitude, pt.longitude));
+      final ne = LatLng(math.max(prop.latitude, pt.latitude),
+          math.max(prop.longitude, pt.longitude));
+      ctrl.animateCamera(
+          CameraUpdate.newLatLngBounds(LatLngBounds(southwest: sw, northeast: ne), 70));
+    } catch (_) {}
+  }
+
+  Future<void> _openDirections(_NearbyPlace pl) async {
+    final uri = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&origin=${controller.latitude},${controller.longitude}&destination=${pl.lat},${pl.lng}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  // ======================================================================
+  //  LOCATION  (map + distance card + 20 km amenity choice chips)
+  // ======================================================================
   Widget _buildLocationSection() {
     final lat = controller.latitude;
     final lng = controller.longitude;
     final hasCoords = !(lat == 0 && lng == 0);
     final target = LatLng(lat, lng);
+    if (hasCoords) _nearbyFuture ??= _loadNearby(lat, lng);
+    final sel = _selectedPlace;
+
+    final markers = <Marker>{
+      Marker(
+        markerId: const MarkerId('property_location_marker'),
+        position: target,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: InfoWindow(
+          title: controller.title.isNotEmpty ? controller.title : 'Property Location',
+          snippet: controller.address,
+        ),
+      ),
+      if (sel != null)
+        Marker(
+          markerId: const MarkerId('selected_place_marker'),
+          position: LatLng(sel.lat, sel.lng),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          infoWindow: InfoWindow(title: sel.name, snippet: _fmtKm(sel.distKm)),
+        ),
+    };
+    final polylines = <Polyline>{
+      if (sel != null)
+        Polyline(
+          polylineId: const PolylineId('to_selected_place'),
+          points: [target, LatLng(sel.lat, sel.lng)],
+          color: _green,
+          width: 4,
+          patterns: [PatternItem.dash(18), PatternItem.gap(10)],
+        ),
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle('Location'),
+        _sectionTitle('Map & Location'),
         SizedBox(height: 4.h),
-        if (hasCoords)
+        if (hasCoords) ...[
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: _green, width: 1.6),   // <-- GREEN BORDER (MANDATORY)
-              color: _tile,                                    // <-- Soft bg also
-              boxShadow: [
-                BoxShadow(
-                  color: _green.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: Colors.white,
+              boxShadow: _elev,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18.r),
               child: SizedBox(
-                height: 200.h,
+                height: 220.h,
                 width: double.infinity,
                 child: Stack(
                   children: [
                     GoogleMap(
                       initialCameraPosition:
-                      CameraPosition(target: target, zoom: 15),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('property_location_marker'),
-                          position: target,
-                          infoWindow: InfoWindow(
-                            title: controller.title.isNotEmpty
-                                ? controller.title
-                                : 'Property Location',
-                            snippet: controller.address,
-                          ),
-                        ),
-                      },
+                      CameraPosition(target: target, zoom: 14),
+                      onMapCreated: (c) => _locMapCtrl = c,
+                      markers: markers,
+                      polylines: polylines,
                       zoomControlsEnabled: false,
                       myLocationButtonEnabled: false,
                       compassEnabled: false,
@@ -1635,164 +1920,155 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               ),
             ),
           ),
+
+          // Distance card (appears when a chip is selected)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: sel == null
+                ? const SizedBox(width: double.infinity)
+                : Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(top: 14.h),
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                boxShadow: _elev,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42.w,
+                    height: 42.w,
+                    decoration: const BoxDecoration(
+                        color: _greenSoft, shape: BoxShape.circle),
+                    child: Icon(Icons.place_rounded,
+                        size: 22.sp, color: _green),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(sel.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _t(13.5.sp, FontWeight.w600, _ink)),
+                        SizedBox(height: 2.h),
+                        Text('${sel.category} • from this property',
+                            style: _t(11.sp, FontWeight.w400, _muted)),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_fmtKm(sel.distKm),
+                          style: _t(16.sp, FontWeight.w700, _green)),
+                      SizedBox(height: 2.h),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _openDirections(sel),
+                        child: Text('Directions',
+                            style: _t(11.sp, FontWeight.w600, _green)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 22.h),
+          _buildNearbyChips(),
+        ],
       ],
     );
   }
 
   // ======================================================================
-  //  NEARBY 20 KM AMENITIES & CONNECTIVITY CAROUSEL
+  //  NEARBY AMENITIES (within 20 km) — name-only choice chips
   // ======================================================================
-  Widget _buildNearby20KmAmenitiesSection() {
-    final rawPlaces = controller.property['nearbyPlaces'] ??
-        controller.property['landmarks'] ??
-        controller.property['nearbyAmenities'];
+  Widget _buildNearbyChips() {
+    final f = _nearbyFuture;
+    if (f == null) return const SizedBox.shrink();
+    return FutureBuilder<List<_NearbyPlace>>(
+      future: f,
+      builder: (context, snap) {
+        final loading = snap.connectionState != ConnectionState.done;
+        final places = snap.data ?? const <_NearbyPlace>[];
+        if (!loading && places.isEmpty) return const SizedBox.shrink();
 
-    if (rawPlaces is! List || rawPlaces.isEmpty) {
-      return const SizedBox.shrink();
-    }
+        final shown = _showAllNearby ? places : places.take(14).toList();
+        final extra = places.length - shown.length;
 
-    final locality = controller.locality.isNotEmpty
-        ? controller.locality
-        : (controller.city.isNotEmpty ? controller.city : 'Property Locality');
-
-    final nearbyCategories = rawPlaces.map((p) {
-      if (p is Map) {
-        return {
-          'title': p['title'] ?? p['name'] ?? 'Amenity',
-          'dist': p['distance'] ?? p['dist'] ?? '',
-          'icon': Icons.location_on_rounded,
-          'count': p['count'] ?? p['category'] ?? p['type'] ?? '',
-        };
-      }
-      return {
-        'title': p.toString(),
-        'dist': '',
-        'icon': Icons.location_on_rounded,
-        'count': '',
-      };
-    }).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Nearby Amenities',
-              style: _t(15.sp, FontWeight.bold, _ink),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-              decoration: BoxDecoration(
-                color: _greenSoft,
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: _green.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.near_me_rounded, size: 12.sp, color: _green),
-                  SizedBox(width: 4.w),
-                  Text(
-                    'Within 20 KM',
-                    style: _t(10.5.sp, FontWeight.w700, _green),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Nearby Amenities',
+                    style: _t(17.sp, FontWeight.w700, _ink)),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                  decoration: BoxDecoration(
+                    color: _greenSoft,
+                    borderRadius: BorderRadius.circular(20.r),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.near_me_rounded, size: 12.sp, color: _green),
+                      SizedBox(width: 4.w),
+                      Text('Within 20 KM',
+                          style: _t(10.5.sp, FontWeight.w700, _green)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              loading
+                  ? 'Finding places around this property…'
+                  : 'Tap a place to see it on the map with distance',
+              style: _t(11.5.sp, FontWeight.w400, _muted),
+            ),
+            SizedBox(height: 14.h),
+            if (loading)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  child: SizedBox(
+                    width: 22.w,
+                    height: 22.w,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.4, color: _green),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 10.w,
+                runSpacing: 12.h,
+                children: [
+                  for (final pl in shown)
+                    _nameChip(
+                      pl.name,
+                      selected: identical(_selectedPlace, pl),
+                      onTap: () => _selectPlace(pl),
+                    ),
+                  if (extra > 0)
+                    _nameChip('+$extra more',
+                        onTap: () => setState(() => _showAllNearby = true)),
                 ],
               ),
-            ),
           ],
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          'Facilities & connectivity near $locality',
-          style: _t(11.5.sp, FontWeight.w500, _muted),
-        ),
-        SizedBox(height: 12.h),
-
-        // Horizontal Scrolling Carousel of Category Cards
-        SizedBox(
-          height: 105.h,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            itemCount: nearbyCategories.length,
-            separatorBuilder: (_, __) => SizedBox(width: 10.w),
-            itemBuilder: (context, index) {
-              final item = nearbyCategories[index];
-              return Container(
-                width: 140.w,
-                padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: _green.withValues(alpha: 0.3), width: 1.2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _ink.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(7.r),
-                          decoration: BoxDecoration(
-                            color: _greenSoft,
-                            borderRadius: BorderRadius.circular(10.r),
-                            border: Border.all(color: _green.withValues(alpha: 0.2)),
-                          ),
-                          child: Icon(
-                            item['icon'] as IconData,
-                            color: _green,
-                            size: 18.sp,
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
-                          decoration: BoxDecoration(
-                            color: _greenSoft,
-                            borderRadius: BorderRadius.circular(10.r),
-                          ),
-                          child: Text(
-                            item['dist'].toString(),
-                            style: _t(10.sp, FontWeight.w800, _green),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item['title'].toString(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _t(12.sp, FontWeight.bold, _ink),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          item['count'].toString(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _t(10.sp, FontWeight.w500, _muted),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -1816,8 +2092,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: _green, width: 1.6),   // <-- GREEN BORDER
-              color: _tile,
+              color: Colors.white,
+              boxShadow: _elev,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18.r),
@@ -1845,8 +2121,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(color: _green, width: 1.4), // GREEN BORDER
-                    color: _tile,
+                    color: Colors.white,
+                    boxShadow: _elev,
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16.r),
@@ -1910,9 +2186,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           width: double.infinity,
           padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: _tile,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: _green, width: 1.6),   // <-- MANDATORY GREEN
             boxShadow: [
               BoxShadow(
                 color: _green.withValues(alpha: 0.08),
@@ -1990,9 +2265,8 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         width: double.infinity,
         padding: EdgeInsets.all(18.w),
         decoration: BoxDecoration(
-          color: _tile,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: _green, width: 1.6),         // <-- MANDATORY GREEN
           boxShadow: [
             BoxShadow(
               color: _green.withValues(alpha: 0.08),
@@ -2086,10 +2360,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10.r),
-                  border: Border.all(color: _greenLine)),
+                  boxShadow: _elev),
               child: Text(
                 disclaimer,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 9.5.sp,
                   color: _muted,
                   fontStyle: FontStyle.italic,
@@ -2115,7 +2389,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: _green, width: 1.1)),  // <-- STRONG GREEN
+          boxShadow: _elev),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2240,9 +2514,9 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     return Container(
                       padding: EdgeInsets.all(12.w),
                       decoration: BoxDecoration(
-                        color: _tile,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: _greenLine),
+                        boxShadow: _elev,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2349,7 +2623,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _ink,
                   padding:
-                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.r),
                   ),
@@ -2369,14 +2643,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               ),
             )
           else if (reviews.isEmpty)
-            // Empty state — ye ek small card hai → GREEN BORDER
+          // Empty state — ye ek small card hai → GREEN BORDER
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: 18.h, horizontal: 14.w),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FCF9),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: _green, width: 1.2),  // <-- MANDATORY GREEN
+                boxShadow: _elev,
               ),
               child: Column(
                 children: [
@@ -2396,7 +2670,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               ),
             )
           else
-            // Reviews list — NO OUTER CARD, only row-level dividers
+          // Reviews list — NO OUTER CARD, only row-level dividers
             Column(
               children: [
                 for (int i = 0; i < reviews.length; i++) ...[
@@ -2422,8 +2696,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     final String dateStr = item.createdAt != null
         ? DateFormat('dd MMM yyyy').format(item.createdAt!)
         : 'Recently';
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10.h),
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 6.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14.r),
+        boxShadow: _elev,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2432,8 +2712,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
             height: 40.w,
             decoration: BoxDecoration(
               color: _greenSoft,
-              borderRadius: BorderRadius.circular(14.r),
-              border: Border.all(color: _greenLine),
+              shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
@@ -2535,7 +2814,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     SizedBox(height: 16.h),
                     Text(
                       'Rate This Property',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 17.sp,
                         fontWeight: FontWeight.w700,
                         color: _ink,
@@ -2543,7 +2822,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     ),
                     Text(
                       'Your feedback will help other buyers explore verified listings.',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 11.5.sp,
                         color: _muted,
                       ),
@@ -2576,7 +2855,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     Center(
                       child: Text(
                         '$selectedRating of 5 Stars',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.inter(
                           fontSize: 12.5.sp,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFFF59E0B),
@@ -2587,7 +2866,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 
                     Text(
                       'Your Feedback / Remarks',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 12.5.sp,
                         fontWeight: FontWeight.w600,
                         color: _ink,
@@ -2599,7 +2878,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         hintText: 'Describe property location, pricing accuracy, condition...',
-                        hintStyle: GoogleFonts.poppins(fontSize: 12.sp, color: Colors.grey),
+                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: Colors.grey),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                         contentPadding: EdgeInsets.all(12.w),
@@ -2632,23 +2911,23 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                         onPressed: isSubmitting
                             ? null
                             : () async {
-                                if (formKey.currentState?.validate() ?? false) {
-                                  setSheetState(() {});
-                                  final success = await controller.submitReview(
-                                    rating: selectedRating,
-                                    remark: remarkController.text.trim(),
-                                  );
+                          if (formKey.currentState?.validate() ?? false) {
+                            setSheetState(() {});
+                            final success = await controller.submitReview(
+                              rating: selectedRating,
+                              remark: remarkController.text.trim(),
+                            );
 
-                                  if (mounted && ctx.mounted) {
-                                    Navigator.of(ctx).pop();
-                                    if (success) {
-                                      AppToast.showSuccess('Review submitted successfully! Thank you.');
-                                    } else {
-                                      AppToast.showError('Could not submit review. Please try again.');
-                                    }
-                                  }
-                                }
-                              },
+                            if (mounted && ctx.mounted) {
+                              Navigator.of(ctx).pop();
+                              if (success) {
+                                AppToast.showSuccess('Review submitted successfully! Thank you.');
+                              } else {
+                                AppToast.showError('Could not submit review. Please try again.');
+                              }
+                            }
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _green,
                           shape: RoundedRectangleBorder(
@@ -2658,21 +2937,21 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                         ),
                         child: isSubmitting
                             ? SizedBox(
-                                width: 20.w,
-                                height: 20.w,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
+                          width: 20.w,
+                          height: 20.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                             : Text(
-                                'Submit Review',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
+                          'Submit Review',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -2720,14 +2999,17 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 final item = controller.similarProperties[index];
 
                 String imgUrl = '';
-                final rawImgs = item['images'] ?? item['photos'] ?? item['gallery'];
+                final rawImgs = item['images'] ??
+                    (item['media'] is Map ? (item['media']['images'] ?? item['media']['photos']) : null) ??
+                    item['photos'] ??
+                    item['gallery'];
                 if (rawImgs is List && rawImgs.isNotEmpty) {
                   imgUrl = rawImgs[0] is Map
                       ? (rawImgs[0]['secure_url']?.toString() ??
-                          rawImgs[0]['url']?.toString() ??
-                          rawImgs[0]['imageUrl']?.toString() ??
-                          rawImgs[0]['image']?.toString() ??
-                          '')
+                      rawImgs[0]['url']?.toString() ??
+                      rawImgs[0]['imageUrl']?.toString() ??
+                      rawImgs[0]['image']?.toString() ??
+                      '')
                       : rawImgs[0].toString();
                 }
                 if (imgUrl.isEmpty) {
@@ -2784,11 +3066,10 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: _green, width: 1.2),   // <-- MANDATORY GREEN
         boxShadow: [
           BoxShadow(
-            color: _green.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: _green.withValues(alpha: 0.10),
+            blurRadius: 14,
             offset: const Offset(0, 3),
           ),
         ],
@@ -2884,7 +3165,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         padding: EdgeInsets.fromLTRB(18.w, 10.h, 18.w, 10.h),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: const Border(top: BorderSide(color: _greenLine)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
@@ -2893,47 +3173,132 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
             ),
           ],
         ),
-        child: Row(
+        child: AnimatedBuilder(
+          animation: _scrollController,
+          builder: (context, _) {
+            // Scroll karne par partner mini-card aa jata hai (video jaisa)
+            final compact = _scrollController.hasClients &&
+                _scrollController.offset > 260.h;
+            return AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  if (compact) ...[
+                    Expanded(
+                      flex: 5,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _showConnectPartnerSheet(context),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38.w,
+                              height: 38.w,
+                              decoration: const BoxDecoration(
+                                color: _greenSoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.support_agent_rounded,
+                                  size: 20.sp, color: _green),
+                            ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Property Partner',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _t(12.sp, FontWeight.w600, _ink)),
+                                  Text('Tap to chat',
+                                      style: _t(10.sp, FontWeight.w400, _muted)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                  ],
+                  Expanded(
+                    flex: compact ? 4 : 1,
+                    child: _buildBookVisitButton(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Navy "Book a Visit" button with a looping shine sweep.
+  Widget _buildBookVisitButton() {
+    return SizedBox(
+      height: 48.h,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14.r),
+        child: Stack(
           children: [
-            Expanded(
-              flex: 2,
-              child: SizedBox(
-                height: 48.h,
-                child: OutlinedButton.icon(
-                  onPressed: () => _showConnectPartnerSheet(context),
-                  icon: Icon(Icons.chat_bubble_outline_rounded,
-                      size: 18.sp, color: _green),
-                  label: Text('Chat',
-                      style: _t(13.sp, FontWeight.w600, _green)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: _green, width: 1.4),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.r)),
+            Positioned.fill(
+              child: Material(
+                color: _green,
+                child: InkWell(
+                  onTap: () => _showScheduleVisitSheet(context),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today_outlined,
+                            size: 16.sp, color: Colors.white),
+                        SizedBox(width: 8.w),
+                        Text('Book a Visit',
+                            style: _t(14.sp, FontWeight.w600, Colors.white)),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 12.w),
-            Expanded(
-              flex: 3,
-              child: SizedBox(
-                height: 48.h,
-                child: ElevatedButton.icon(
-                  onPressed: () => _handleInstantConnectPartner(context),
-                  onLongPress: () => _showConnectPartnerSheet(context),
-                  icon: Icon(Icons.groups_rounded,
-                      color: Colors.white, size: 18.sp),
-                  label: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Connect with Partner',
-                        style: _t(13.sp, FontWeight.w600, Colors.white)),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _green,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.r)),
-                  ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    return AnimatedBuilder(
+                      animation: _shine,
+                      builder: (context, _) {
+                        final t = Curves.easeInOut
+                            .transform((_shine.value / 0.5).clamp(0.0, 1.0));
+                        final w = box.maxWidth;
+                        return Stack(
+                          children: [
+                            Positioned(
+                              left: -70 + (w + 140) * t,
+                              top: 0,
+                              bottom: 0,
+                              width: 60,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white.withValues(alpha: 0),
+                                      Colors.white.withValues(alpha: 0.28),
+                                      Colors.white.withValues(alpha: 0),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ),
@@ -3073,7 +3438,7 @@ class _PillTabsDelegate extends SliverPersistentHeaderDelegate {
   final ValueNotifier<int> active;
   final ValueChanged<int> onTap;
 
-  static const Color _green = Color(0xFF007A5E);
+  static const Color _green = Color(0xFF0B6E5F);
 
   @override
   double get minExtent => height;
@@ -3085,6 +3450,7 @@ class _PillTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _PillTabsDelegate old) =>
       old.height != height || old.labels.join('|') != labels.join('|');
 
+  // Underline-style tabs (Overview | Features | Amenities | Map & Location ...)
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
@@ -3092,16 +3458,13 @@ class _PillTabsDelegate extends SliverPersistentHeaderDelegate {
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: const Border(bottom: BorderSide(color: Color(0xFFCBEFE0))),
-        boxShadow: overlapsContent
-            ? [
+        boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: overlapsContent ? 0.08 : 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 3),
           ),
-        ]
-            : null,
+        ],
       ),
       child: ValueListenableBuilder<int>(
         valueListenable: active,
@@ -3113,30 +3476,38 @@ class _PillTabsDelegate extends SliverPersistentHeaderDelegate {
             itemCount: labels.length,
             itemBuilder: (context, i) {
               final selected = i == current;
-              return Center(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onTap(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: EdgeInsets.only(right: 8.w),
-                    padding:
-                    EdgeInsets.symmetric(horizontal: 18.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: selected ? _green : Colors.white,
-                      borderRadius: BorderRadius.circular(22.r),
-                      border: Border.all(
-                        color: selected ? _green : const Color(0xFFCBEFE0),
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onTap(i),
+                child: Container(
+                  margin: EdgeInsets.only(right: 22.w),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Spacer(),
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5.sp,
+                          fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w500,
+                          color: selected ? _green : const Color(0xFF6B7280),
+                        ),
+                        child: Text(labels[i]),
                       ),
-                    ),
-                    child: Text(
-                      labels[i],
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                        color: selected ? Colors.white : const Color(0xFF475569),
+                      const Spacer(),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        height: 2.5,
+                        width: selected ? (labels[i].length * 7.6).w : 0,
+                        decoration: BoxDecoration(
+                          color: _green,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               );
@@ -3158,8 +3529,8 @@ class _ConnectPartnerSheet extends StatefulWidget {
 }
 
 class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
-  String _partnerName = 'DigiNiwas Partner';
-  String _partnerSub = 'Verified Partner';
+  String _partnerName = '';
+  String _partnerSub = '';
   String _partnerPhone = '';
   String _partnerId = '';
   bool _resolvingPartner = true;
@@ -3335,27 +3706,27 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.check_circle_rounded,
-                    color: const Color(0xFF007A5E), size: 40.sp),
+                    color: const Color(0xFF0B6E5F), size: 40.sp),
               ),
               SizedBox(height: 12.h),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F7F2),
+                  color: const Color(0xFFE3F1ED),
                   borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.verified_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                    Icon(Icons.verified_rounded, size: 12.sp, color: const Color(0xFF0B6E5F)),
                     SizedBox(width: 4.w),
                     Text(
                       'Completed',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF007A5E),
+                        color: const Color(0xFF0B6E5F),
                       ),
                     ),
                   ],
@@ -3365,7 +3736,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
               Text(
                 'Lead Generated Successfully!',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0F172A),
@@ -3375,7 +3746,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
               Text(
                 'Your inquiry for this property has been submitted. Our verified DigiNiwas Partner has received your request and will contact you shortly.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 12.sp,
                   color: const Color(0xFF64748B),
                   height: 1.45,
@@ -3387,7 +3758,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                 child: ElevatedButton(
                   onPressed: () => Get.back(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007A5E),
+                    backgroundColor: const Color(0xFF0B6E5F),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r)),
@@ -3395,7 +3766,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                   ),
                   child: Text(
                     'OK',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -3497,7 +3868,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                   Expanded(
                     child: Text(
                       'Connect with DigiNiwas Partner',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF0F172A)),
@@ -3513,7 +3884,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
               SizedBox(height: 4.h),
               Text(
                 'Get verified pricing, floor plans, and arrange direct site visits.',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontSize: 11.5.sp,
                     color: const Color(0xFF64748B),
                     height: 1.35),
@@ -3532,7 +3903,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                 child: Text(
                   '🛡️ Zero Spam Guarantee • Direct connection with verified DigiNiwas partner.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.inter(
                       fontSize: 10.sp, color: const Color(0xFF94A3B8)),
                 ),
               ),
@@ -3549,7 +3920,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: const Color(0xFFCBEFE0)),
+        border: Border.all(color: const Color(0xFFE3F1ED)),
       ),
       child: Row(
         children: [
@@ -3582,7 +3953,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                       : 'This Property',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.inter(
                       fontSize: 12.5.sp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A)),
@@ -3592,7 +3963,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                     widget.controller.address,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                         fontSize: 10.5.sp, color: const Color(0xFF64748B)),
                   ),
               ],
@@ -3601,10 +3972,10 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
           if (widget.controller.priceDisplay.isNotEmpty)
             Text(
               widget.controller.priceDisplay,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF007A5E)),
+                  color: const Color(0xFF0B6E5F)),
             ),
         ],
       ),
@@ -3626,14 +3997,14 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
             children: [
               CircleAvatar(
                 radius: 20.r,
-                backgroundColor: const Color(0xFF007A5E),
+                backgroundColor: const Color(0xFF0B6E5F),
                 child: Text(
                   _resolvingPartner
                       ? '..'
                       : (_partnerName.isNotEmpty
                       ? _partnerName[0].toUpperCase()
                       : 'P'),
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                       fontSize: 14.sp),
@@ -3653,7 +4024,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                                 : _partnerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                                 fontSize: 12.5.sp,
                                 fontWeight: FontWeight.w700,
                                 color: const Color(0xFF0F172A)),
@@ -3662,7 +4033,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                         SizedBox(width: 6.w),
                         if (!_resolvingPartner)
                           Icon(Icons.verified_rounded,
-                              color: const Color(0xFF007A5E), size: 14.sp),
+                              color: const Color(0xFF0B6E5F), size: 14.sp),
                       ],
                     ),
                     SizedBox(height: 2.h),
@@ -3670,7 +4041,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                       _resolvingPartner ? ' ' : _partnerSub,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 10.5.sp, color: const Color(0xFF64748B)),
                     ),
                   ],
@@ -3686,7 +4057,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
             onPressed: () => _handleQuickContact('whatsapp'),
             icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
             label: Text('Chat on WhatsApp',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                     fontSize: 12.5.sp)),
@@ -3706,7 +4077,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
             onPressed: () => _handleQuickContact('call'),
             icon: const Icon(Icons.call_rounded, color: Colors.white, size: 16),
             label: Text('Call Partner Directly',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                     fontSize: 12.5.sp)),
@@ -3725,14 +4096,14 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
           child: OutlinedButton.icon(
             onPressed: () => setState(() => _showCallbackForm = true),
             icon: Icon(Icons.notifications_active_rounded,
-                color: const Color(0xFF007A5E), size: 16.sp),
+                color: const Color(0xFF0B6E5F), size: 16.sp),
             label: Text('Request Instant Callback',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF007A5E),
+                    color: const Color(0xFF0B6E5F),
                     fontSize: 12.5.sp)),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Color(0xFFCBEFE0)),
+              side: const BorderSide(color: Color(0xFFE3F1ED)),
               padding: EdgeInsets.symmetric(vertical: 13.h),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r)),
@@ -3750,30 +4121,30 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Request Instant Callback',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.inter(
                   fontSize: 13.sp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0F172A))),
           SizedBox(height: 2.h),
           Text(
             'Share your details and a verified partner will call you back shortly.',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
                 fontSize: 11.sp, color: const Color(0xFF64748B), height: 1.35),
           ),
           SizedBox(height: 14.h),
           TextField(
             controller: _nameController,
-            style: GoogleFonts.poppins(fontSize: 12.5.sp),
+            style: GoogleFonts.inter(fontSize: 12.5.sp),
             decoration: InputDecoration(
               labelText: 'Your Name',
-              labelStyle: GoogleFonts.poppins(
+              labelStyle: GoogleFonts.inter(
                   fontSize: 11.5.sp, color: const Color(0xFF64748B)),
               prefixIcon: Icon(Icons.person_outline_rounded,
                   color: const Color(0xFF64748B), size: 18.sp),
               border:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFCBEFE0))),
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE3F1ED))),
               enabledBorder:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFCBEFE0))),
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE3F1ED))),
               contentPadding:
               EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
             ),
@@ -3782,17 +4153,17 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
           TextField(
             controller: _phoneController,
             keyboardType: TextInputType.phone,
-            style: GoogleFonts.poppins(fontSize: 12.5.sp),
+            style: GoogleFonts.inter(fontSize: 12.5.sp),
             decoration: InputDecoration(
               labelText: 'Phone Number',
-              labelStyle: GoogleFonts.poppins(
+              labelStyle: GoogleFonts.inter(
                   fontSize: 11.5.sp, color: const Color(0xFF64748B)),
               prefixIcon: Icon(Icons.phone_outlined,
                   color: const Color(0xFF64748B), size: 18.sp),
               border:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFCBEFE0))),
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE3F1ED))),
               enabledBorder:
-              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFCBEFE0))),
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE3F1ED))),
               contentPadding:
               EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
             ),
@@ -3806,13 +4177,13 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                       ? null
                       : () => setState(() => _showCallbackForm = false),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFCBEFE0)),
+                    side: const BorderSide(color: Color(0xFFE3F1ED)),
                     padding: EdgeInsets.symmetric(vertical: 13.h),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r)),
                   ),
                   child: Text('Back',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF334155),
                           fontSize: 12.5.sp)),
@@ -3824,7 +4195,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                 child: ElevatedButton(
                   onPressed: isSubmitting ? null : _submitCallbackRequest,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007A5E),
+                    backgroundColor: const Color(0xFF0B6E5F),
                     padding: EdgeInsets.symmetric(vertical: 13.h),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r)),
@@ -3837,7 +4208,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
                       child: const CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                       : Text('Request Callback',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                           fontSize: 12.5.sp)),
@@ -3858,11 +4229,11 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
           decoration: const BoxDecoration(
               color: Color(0xFFEFF8F5), shape: BoxShape.circle),
           child: Icon(Icons.check_circle_rounded,
-              color: const Color(0xFF007A5E), size: 32.sp),
+              color: const Color(0xFF0B6E5F), size: 32.sp),
         ),
         SizedBox(height: 12.h),
         Text('Callback Requested!',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF0F172A))),
@@ -3870,7 +4241,7 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
         Text(
           'A verified DigiNiwas partner will call you back shortly on ${_phoneController.text.trim()}.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.inter(
               fontSize: 11.5.sp, color: const Color(0xFF64748B), height: 1.4),
         ),
         SizedBox(height: 16.h),
@@ -3879,14 +4250,14 @@ class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
           child: ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF007A5E),
+              backgroundColor: const Color(0xFF0B6E5F),
               padding: EdgeInsets.symmetric(vertical: 13.h),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r)),
               elevation: 0,
             ),
             child: Text('Done',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                     fontSize: 12.5.sp)),
@@ -4135,12 +4506,12 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.check_rounded,
-                    color: const Color(0xFF007A5E), size: 28.sp),
+                    color: const Color(0xFF0B6E5F), size: 28.sp),
               ),
               SizedBox(height: 14.h),
               Text(
                 'Visit Request Received!',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF0F172A),
@@ -4150,7 +4521,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
               Text(
                 'We\'ve notified the DigiNiwas desk. A local verified partner is being assigned to lock your slot and guide your tour.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 11.5.sp,
                   color: const Color(0xFF64748B),
                   height: 1.4,
@@ -4163,7 +4534,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: const Color(0xFFCBEFE0)),
+                  border: Border.all(color: const Color(0xFFE3F1ED)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4178,7 +4549,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                             propertyTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF0F172A),
@@ -4191,14 +4562,14 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                     Row(
                       children: [
                         Icon(Icons.calendar_month_rounded,
-                            size: 14.sp, color: const Color(0xFF007A5E)),
+                            size: 14.sp, color: const Color(0xFF0B6E5F)),
                         SizedBox(width: 6.w),
                         Text(
                           '${requestedAt.day} ${months[requestedAt.month - 1].substring(0, 3)} • ${DateFormat('hh:mm a').format(requestedAt)}',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.inter(
                             fontSize: 11.5.sp,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF007A5E),
+                            color: const Color(0xFF0B6E5F),
                           ),
                         ),
                       ],
@@ -4213,7 +4584,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                       ),
                       child: Text(
                         statusLabel,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.inter(
                           fontSize: 10.sp,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFFB45309),
@@ -4238,7 +4609,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                     Expanded(
                       child: Text(
                         'You\'ll receive a WhatsApp & in-app update once confirmed.',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.inter(
                           fontSize: 10.5.sp,
                           color: const Color(0xFF1E40AF),
                         ),
@@ -4256,7 +4627,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                     Get.to(() => const ScheduledVisitsScreen());
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF007A5E),
+                    backgroundColor: const Color(0xFF0B6E5F),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.r)),
@@ -4264,7 +4635,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                   ),
                   child: Text(
                     'View My Scheduled Visits',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                         fontSize: 12.5.sp,
                         fontWeight: FontWeight.w600,
                         color: Colors.white),
@@ -4277,14 +4648,14 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                 child: OutlinedButton(
                   onPressed: () => Get.back(),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFCBEFE0)),
+                    side: const BorderSide(color: Color(0xFFE3F1ED)),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.r)),
                   ),
                   child: Text(
                     'Back to Home',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                         fontSize: 12.5.sp,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF0F172A)),
@@ -4351,11 +4722,11 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
               Row(
                 children: [
                   Icon(Icons.calendar_month_rounded,
-                      color: const Color(0xFF007A5E), size: 20.sp),
+                      color: const Color(0xFF0B6E5F), size: 20.sp),
                   SizedBox(width: 8.w),
                   Text(
                     'Schedule Visit',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.inter(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A),
@@ -4376,7 +4747,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: const Color(0xFFCBEFE0)),
+                  border: Border.all(color: const Color(0xFFE3F1ED)),
                 ),
                 child: Row(
                   children: [
@@ -4407,7 +4778,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                             widget.controller.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                                 fontSize: 12.5.sp,
                                 fontWeight: FontWeight.w700,
                                 color: const Color(0xFF0F172A)),
@@ -4417,41 +4788,42 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                             widget.controller.address,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                                 fontSize: 10.5.sp,
                                 color: const Color(0xFF64748B)),
                           ),
                           SizedBox(height: 2.h),
                           Text(
                             widget.controller.priceDisplay,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.inter(
                                 fontSize: 12.sp,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF007A5E)),
+                                color: const Color(0xFF0B6E5F)),
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding:
-                      EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE6F4EA),
-                        borderRadius: BorderRadius.circular(6.r),
+                    if (widget.controller.propertyModel.value.isVerified)
+                      Container(
+                        padding:
+                        EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE6F4EA),
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.verified,
+                                size: 10.sp, color: const Color(0xFF0B6E5F)),
+                            SizedBox(width: 3.w),
+                            Text('Verified',
+                                style: GoogleFonts.inter(
+                                    fontSize: 9.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF0B6E5F))),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.verified,
-                              size: 10.sp, color: const Color(0xFF007A5E)),
-                          SizedBox(width: 3.w),
-                          Text('Verified',
-                              style: GoogleFonts.poppins(
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF007A5E))),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -4463,7 +4835,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(16.r),
-                  border: Border.all(color: const Color(0xFFCBEFE0)),
+                  border: Border.all(color: const Color(0xFFE3F1ED)),
                 ),
                 child: Column(
                   children: [
@@ -4472,7 +4844,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                       children: [
                         Text(
                           '${months[_displayedMonth.month - 1]} ${_displayedMonth.year}',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.inter(
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF0F172A)),
@@ -4501,7 +4873,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: weekDays
                           .map((day) => Text(day,
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.inter(
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF64748B))))
@@ -4539,14 +4911,14 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF007A5E)
+                                  ? const Color(0xFF0B6E5F)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(8.r),
                             ),
                             alignment: Alignment.center,
                             child: Text(
                               '$day',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.inter(
                                 fontSize: 12.sp,
                                 fontWeight: isSelected
                                     ? FontWeight.w700
@@ -4568,7 +4940,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
               // Select Time Title
               Text(
                 'Select Time',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                     fontSize: 13.sp,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF0F172A)),
@@ -4603,18 +4975,18 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                         borderRadius: BorderRadius.circular(10.r),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF007A5E)
-                              : const Color(0xFFCBEFE0),
+                              ? const Color(0xFF0B6E5F)
+                              : const Color(0xFFE3F1ED),
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
                       child: Text(
                         slot,
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.inter(
                           fontSize: 11.5.sp,
                           fontWeight: FontWeight.w600,
                           color: isSelected
-                              ? const Color(0xFF007A5E)
+                              ? const Color(0xFF0B6E5F)
                               : const Color(0xFF334155),
                         ),
                       ),
@@ -4633,9 +5005,9 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                         ? null
                         : () => _submitVisitRequest(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007A5E),
+                      backgroundColor: const Color(0xFF0B6E5F),
                       disabledBackgroundColor:
-                      const Color(0xFF007A5E).withValues(alpha: 0.6),
+                      const Color(0xFF0B6E5F).withValues(alpha: 0.6),
                       padding: EdgeInsets.symmetric(vertical: 14.h),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r)),
@@ -4650,7 +5022,7 @@ class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
                     )
                         : Text(
                       'Request Visit for ${_selectedDate.day} ${months[_selectedDate.month - 1].substring(0, 3)}',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                           fontSize: 13.sp,
                           fontWeight: FontWeight.w600,
                           color: Colors.white),
@@ -4710,7 +5082,7 @@ class _FullScreenZoomGalleryState extends State<_FullScreenZoomGallery> {
         ),
         title: Text(
           '${_currentIndex + 1} of ${widget.imageUrls.length}',
-          style: GoogleFonts.poppins(color: Colors.white, fontSize: 14.sp),
+          style: GoogleFonts.inter(color: Colors.white, fontSize: 14.sp),
         ),
         centerTitle: true,
       ),
@@ -5098,7 +5470,7 @@ class _ScheduledVisitsScreenState extends State<ScheduledVisitsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          partner.name ?? 'Assigned Partner',
+                          partner.name ?? '',
                           style: GoogleFonts.poppins(
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
@@ -6423,10 +6795,10 @@ class _SimilarPropertiesScreen extends StatelessWidget {
     if (raw is List && raw.isNotEmpty) {
       return raw[0] is Map
           ? (raw[0]['secure_url']?.toString() ??
-              raw[0]['url']?.toString() ??
-              raw[0]['imageUrl']?.toString() ??
-              raw[0]['image']?.toString() ??
-              '')
+          raw[0]['url']?.toString() ??
+          raw[0]['imageUrl']?.toString() ??
+          raw[0]['image']?.toString() ??
+          '')
           : raw[0].toString();
     }
     for (final k in ['image', 'imageUrl', 'coverImage', 'thumbnail']) {
@@ -6591,4 +6963,22 @@ class _SimilarPropertiesScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// A real place around the property (school, hospital, mall ...).
+class _NearbyPlace {
+  const _NearbyPlace({
+    required this.name,
+    required this.category,
+    required this.lat,
+    required this.lng,
+    required this.distKm,
+  });
+
+  final String name;
+  final String category;
+  final double lat;
+  final double lng;
+  final double distKm;
 }

@@ -29,6 +29,8 @@
 //   }
 // }
 
+import '../../../core/widgets/app_image.dart';
+
 class ProperttCategoryFilter {
   Location? location;
   List<String>? tabs;
@@ -190,22 +192,29 @@ class Properties {
       furnishing = fMap["status"]?.toString() ?? fMap["name"]?.toString();
     }
 
-    if (json["images"] is List && (json["images"] as List).isNotEmpty) {
-      images = (json["images"] as List)
-          .map((e) => Images.fromJson(e))
-          .where((e) => e.url != null && e.url!.isNotEmpty)
-          .toList();
-    } else if (json["photos"] is List && (json["photos"] as List).isNotEmpty) {
-      images = (json["photos"] as List)
+    dynamic rawImages = json["images"];
+    if (rawImages is! List || rawImages.isEmpty) {
+      if (json["media"] is Map) {
+        final media = json["media"] as Map;
+        rawImages = media["images"] ?? media["photos"];
+      }
+    }
+    if (rawImages is! List || rawImages.isEmpty) {
+      rawImages = json["photos"] ?? json["gallery"];
+    }
+
+    if (rawImages is List && rawImages.isNotEmpty) {
+      images = rawImages
           .map((e) => Images.fromJson(e))
           .where((e) => e.url != null && e.url!.isNotEmpty)
           .toList();
     } else {
-      final single = json["image"] ?? json["imageUrl"] ?? json["coverImage"] ?? json["thumbnail"];
+      final single = json["image"] ?? json["imageUrl"] ?? json["coverImage"] ?? json["thumbnail"] ?? json["photo"];
       if (single != null && single.toString().trim().isNotEmpty && single.toString().trim().toLowerCase() != 'null') {
-        images = [Images(url: single.toString().trim())];
+        images = [Images(url: ImageCase.sanitizeUrl(single.toString().trim()))];
       }
     }
+    images ??= [];
     if(json["createdAt"] is String) {
       createdAt = json["createdAt"];
     }
@@ -237,6 +246,9 @@ class Properties {
     data["furnishing"] = furnishing;
     if(images != null) {
       data["images"] = images?.map((e) => e.toJson()).toList();
+      data["media"] = {
+        "images": images?.map((e) => e.toJson()).toList(),
+      };
     }
     data["createdAt"] = createdAt;
     if(promotion != null) {
@@ -295,12 +307,12 @@ class Images {
 
   Images.fromJson(dynamic json) {
     if (json is String) {
-      url = json.trim();
+      url = ImageCase.sanitizeUrl(json.trim());
       return;
     }
     if (json is Map) {
       final raw = json["url"] ?? json["secure_url"] ?? json["image"] ?? json["imageUrl"] ?? json["path"];
-      if (raw != null) url = raw.toString().trim();
+      if (raw != null) url = ImageCase.sanitizeUrl(raw.toString().trim());
       publicId = (json["public_id"] ?? json["publicId"])?.toString();
       id = (json["_id"] ?? json["id"])?.toString();
     }

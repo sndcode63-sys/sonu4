@@ -57,6 +57,7 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF071B2F),
+        drawer: _buildChatGPTDrawer(context),
         body: SafeArea(
           top: false,
           bottom: true,
@@ -106,13 +107,23 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
       children: [
         Row(
           children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                onPressed: () {
+                  controller.loadSavedSessions();
+                  Scaffold.of(ctx).openDrawer();
+                },
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                tooltip: 'Chat History',
+              ),
+            ),
             if (canPop) ...[
               const AppAdaptiveBackButton(
                 color: Colors.white,
                 backgroundColor: Color(0xFF0F324D),
-                size: 36,
+                size: 34,
                 iconSize: 18,
-                margin: EdgeInsets.only(right: 10),
+                margin: EdgeInsets.only(right: 8),
               ),
             ],
 
@@ -130,7 +141,7 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset('assets/images/niwas_ai_icon.png',
-                        width: 25.sp, height: 25.sp, fit: BoxFit.contain),
+                        width: 22.sp, height: 22.sp, fit: BoxFit.contain),
                     SizedBox(width: 5.w),
                     Text(
                       badgeLabel.toUpperCase(),
@@ -154,15 +165,197 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
             }),
           ],
         ),
-        Obx(() {
-          if (controller.messages.isEmpty && controller.currentMode.value == null) return const SizedBox.shrink();
-          return IconButton(
-            onPressed: () => controller.startNewChat(),
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF4EE1A0)),
-            tooltip: 'New Chat',
-          );
-        }),
+
+        // ChatGPT-style History Drawer & New Chat Buttons
+        Row(
+          children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                onPressed: () {
+                  controller.loadSavedSessions();
+                  Scaffold.of(ctx).openDrawer();
+                },
+                icon: const Icon(Icons.history_rounded, color: Color(0xFF4EE1A0)),
+                tooltip: 'Chat History',
+              ),
+            ),
+            IconButton(
+              onPressed: () => controller.startNewChat(),
+              icon: const Icon(Icons.add_comment_outlined, color: Colors.white70),
+              tooltip: 'New Chat',
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // CHATGPT-STYLE SIDE NAVIGATION DRAWER (NO BOTTOM SHEET)
+  // ---------------------------------------------------------------------
+  Widget _buildChatGPTDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: const Color(0xFF071B2F),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Drawer Header
+            Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 12.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.history_rounded, color: const Color(0xFF4EE1A0), size: 22.sp),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'Chat History',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44.h,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        controller.startNewChat();
+                      },
+                      icon: Icon(Icons.add_rounded, size: 18.sp, color: Colors.white),
+                      label: Text(
+                        'New Chat',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF007A5E),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Color(0xFF14354E), height: 1),
+
+            // History Sessions List
+            Expanded(
+              child: Obx(() {
+                final sessions = controller.savedSessions;
+                if (sessions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline_rounded, size: 36.sp, color: const Color(0xFF476077)),
+                        SizedBox(height: 10.h),
+                        Text(
+                          'No chat history yet',
+                          style: GoogleFonts.poppins(fontSize: 13.sp, color: const Color(0xFF8A9FA8)),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'Start a conversation with Niwas AI',
+                          style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF5E798E)),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                  itemCount: sessions.length,
+                  separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                  itemBuilder: (ctx, idx) {
+                    final item = sessions[idx];
+                    final id = item['id']?.toString() ?? '';
+                    final title = item['title']?.toString() ?? 'Chat Conversation';
+                    final isCurrent = controller.sessionId.value == id;
+
+                    String dateStr = '';
+                    if (item['updatedAt'] != null) {
+                      final dt = DateTime.tryParse(item['updatedAt'].toString());
+                      if (dt != null) {
+                        dateStr = '${dt.day}/${dt.month}/${dt.year} • ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+                      }
+                    }
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: isCurrent ? const Color(0xFF0F3952) : const Color(0xFF0C243B),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: isCurrent ? const Color(0xFF4EE1A0) : const Color(0xFF153B5A),
+                          width: isCurrent ? 1.2 : 1.0,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          onTap: () {
+                            Navigator.pop(context);
+                            controller.loadSessionHistory(id);
+                          },
+                          leading: Icon(
+                            isCurrent ? Icons.chat_rounded : Icons.history_rounded,
+                            size: 18.sp,
+                            color: isCurrent ? const Color(0xFF4EE1A0) : const Color(0xFF708CA6),
+                          ),
+                          title: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.5.sp,
+                              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                              color: isCurrent ? Colors.white : const Color(0xFFD0E1F0),
+                            ),
+                          ),
+                          subtitle: dateStr.isNotEmpty
+                              ? Text(
+                                  dateStr,
+                                  style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF6B8A9E)),
+                                )
+                              : null,
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete_outline_rounded, size: 18.sp, color: Colors.redAccent.shade100),
+                            onPressed: () => controller.deleteSession(id),
+                            tooltip: 'Delete Chat',
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -192,42 +385,10 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
   }
 
   // ---------------------------------------------------------------------
-  // AI GLOWING AVATAR
+  // AI SPREADING AURA LOGO AVATAR
   // ---------------------------------------------------------------------
   Widget _buildAiAvatar() {
-    return Container(
-      width: 84.w,
-      height: 84.w,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const RadialGradient(
-          colors: [
-            Color(0xFF0A685A),
-            Color(0xFF0B3A46),
-            Color(0xFF071B2F),
-          ],
-          stops: [0.0, 0.7, 1.0],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00A884).withValues(alpha: 0.25),
-            blurRadius: 30,
-            spreadRadius: 8,
-          ),
-        ],
-        border: Border.all(
-            color: const Color(0xFF0E8570).withValues(alpha: 0.4), width: 1.5),
-      ),
-      child: Center(
-        child: Padding(
-          padding: EdgeInsets.all(18.w),
-          child: Image.asset(
-            'assets/images/niwas_ai_icon.png',
-            fit: BoxFit.contain,
-          ),
-        ),
-      ),
-    );
+    return SpreadingAiLogo(size: 80.w);
   }
 
   // ---------------------------------------------------------------------
@@ -661,10 +822,10 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
   // ---------------------------------------------------------------------
   Widget _buildPropertiesCarousel(List<AiPropertyCard> properties) {
     return SizedBox(
-      height: 330.h,
+      height: 360.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
+        physics: const BouncingScrollPhysics(),
         itemCount: properties.length,
         itemBuilder: (context, index) {
           final property = properties[index];
@@ -675,13 +836,11 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
   }
 
   Widget _buildPropertyCard(AiPropertyCard property) {
-    final hasImage = (property.image != null && property.image!.isNotEmpty) ||
-        (property.images.isNotEmpty && property.images.first.isNotEmpty);
     final imageUrl = property.image ??
         (property.images.isNotEmpty ? property.images.first : '');
 
     return Container(
-      width: 260.w,
+      width: 265.w,
       margin: EdgeInsets.only(right: 14.w),
       decoration: BoxDecoration(
         color: const Color(0xFF0D2841),
@@ -689,14 +848,15 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
         border: Border.all(color: const Color(0xFF1B3F63)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Image preview + badges
           Stack(
@@ -705,7 +865,7 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
                 child: ImageCase(
                   url: imageUrl,
-                  height: 135.h,
+                  height: 132.h,
                   width: double.infinity,
                   fit: BoxFit.cover,
                   fallbackIcon: Icons.home_work_rounded,
@@ -718,8 +878,7 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                   top: 8.h,
                   left: 8.w,
                   child: Container(
-                    padding:
-                    EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
                       color: const Color(0xFF007A5E),
                       borderRadius: BorderRadius.circular(14.r),
@@ -727,13 +886,12 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.verified_rounded,
-                            size: 10.sp, color: Colors.white),
-                        SizedBox(width: 3.w),
+                        Icon(Icons.verified_rounded, size: 11.sp, color: Colors.white),
+                        SizedBox(width: 4.w),
                         Text(
                           'VERIFIED',
                           style: GoogleFonts.poppins(
-                            fontSize: 8.sp,
+                            fontSize: 8.5.sp,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -742,22 +900,20 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                     ),
                   ),
                 ),
-              if (property.transactionType != null &&
-                  property.transactionType!.isNotEmpty)
+              if (property.transactionType != null && property.transactionType!.isNotEmpty)
                 Positioned(
                   top: 8.h,
                   right: 8.w,
                   child: Container(
-                    padding:
-                    EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF071B2F).withValues(alpha: 0.8),
+                      color: const Color(0xFF071B2F).withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(14.r),
                     ),
                     child: Text(
                       property.transactionType!.toUpperCase(),
                       style: GoogleFonts.poppins(
-                        fontSize: 8.sp,
+                        fontSize: 8.5.sp,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF4EE1A0),
                       ),
@@ -772,9 +928,11 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
             padding: EdgeInsets.all(12.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: Text(
@@ -782,16 +940,17 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 12.5.sp,
+                          fontSize: 13.sp,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
                       ),
                     ),
+                    SizedBox(width: 6.w),
                     Text(
                       property.formattedPrice,
                       style: GoogleFonts.poppins(
-                        fontSize: 12.5.sp,
+                        fontSize: 13.sp,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF4EE1A0),
                       ),
@@ -801,8 +960,7 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                 SizedBox(height: 4.h),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 11.sp, color: const Color(0xFF00A884)),
+                    Icon(Icons.location_on_outlined, size: 12.sp, color: const Color(0xFF00A884)),
                     SizedBox(width: 3.w),
                     Expanded(
                       child: Text(
@@ -810,54 +968,47 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
-                          fontSize: 10.sp,
+                          fontSize: 10.5.sp,
                           color: const Color(0xFF869EB5),
                         ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 6.h),
+                SizedBox(height: 8.h),
                 Row(
                   children: [
-                    if (property.bedrooms != null &&
-                        property.bedrooms!.isNotEmpty) ...[
-                      Icon(Icons.bed_outlined,
-                          size: 12.sp, color: const Color(0xFF869EB5)),
+                    if (property.bedrooms != null && property.bedrooms!.isNotEmpty) ...[
+                      Icon(Icons.bed_outlined, size: 13.sp, color: const Color(0xFF869EB5)),
                       SizedBox(width: 3.w),
                       Text(
                         '${property.bedrooms} BHK',
-                        style: GoogleFonts.poppins(
-                            fontSize: 9.5.sp, color: const Color(0xFFCAD7E2)),
+                        style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFFCAD7E2)),
                       ),
                       SizedBox(width: 10.w),
                     ],
                     if (property.size != null) ...[
-                      Icon(Icons.crop_square_rounded,
-                          size: 12.sp, color: const Color(0xFF869EB5)),
+                      Icon(Icons.crop_square_rounded, size: 13.sp, color: const Color(0xFF869EB5)),
                       SizedBox(width: 3.w),
                       Text(
                         '${property.size} ${property.sizeUnit ?? "sqft"}',
-                        style: GoogleFonts.poppins(
-                            fontSize: 9.5.sp, color: const Color(0xFFCAD7E2)),
+                        style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFFCAD7E2)),
                       ),
                       SizedBox(width: 10.w),
                     ],
-                    if (property.furnishing != null &&
-                        property.furnishing!.isNotEmpty) ...[
+                    if (property.furnishing != null && property.furnishing!.isNotEmpty) ...[
                       Expanded(
                         child: Text(
                           property.furnishing!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                              fontSize: 9.sp, color: const Color(0xFFCAD7E2)),
+                          style: GoogleFonts.poppins(fontSize: 9.5.sp, color: const Color(0xFFCAD7E2)),
                         ),
                       ),
                     ],
                   ],
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
 
                 // Action Buttons: View Property & Snapshot Insights
                 Row(
@@ -865,7 +1016,6 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navigate to property details
                           Get.toNamed(AppRoutes.propertyDetails, arguments: {
                             'propertyId': property.id,
                             'property': {
@@ -876,43 +1026,40 @@ class _NiwasAiScreenState extends State<NiwasAiScreen> {
                               'locality': property.locality,
                               'city': property.city,
                               'bedrooms': property.bedrooms,
-                              'images': property.images
-                                  .map((url) => {'url': url})
-                                  .toList(),
+                              'images': property.images.map((url) => {'url': url}).toList(),
                             }
                           });
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF007A5E),
                           foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(vertical: 8.h),
+                          padding: EdgeInsets.symmetric(vertical: 10.h),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.r),
+                            borderRadius: BorderRadius.circular(10.r),
                           ),
                           elevation: 0,
                         ),
                         child: Text(
                           'View Property',
                           style: GoogleFonts.poppins(
-                            fontSize: 10.5.sp,
+                            fontSize: 11.sp,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                    SizedBox(width: 6.w),
+                    SizedBox(width: 8.w),
                     InkWell(
                       onTap: () => _showPropertySnapshotModal(property.id),
-                      borderRadius: BorderRadius.circular(8.r),
+                      borderRadius: BorderRadius.circular(10.r),
                       child: Container(
-                        padding: EdgeInsets.all(8.h),
+                        padding: EdgeInsets.all(9.h),
                         decoration: BoxDecoration(
                           color: const Color(0xFF11385C),
-                          borderRadius: BorderRadius.circular(8.r),
+                          borderRadius: BorderRadius.circular(10.r),
                           border: Border.all(color: const Color(0xFF1E5279)),
                         ),
-                        child: Icon(Icons.analytics_outlined,
-                            color: const Color(0xFF4EE1A0), size: 16.sp),
+                        child: Icon(Icons.analytics_outlined, color: const Color(0xFF4EE1A0), size: 18.sp),
                       ),
                     ),
                   ],
@@ -1856,6 +2003,137 @@ class _VoiceSearchSheetState extends State<_VoiceSearchSheet>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
+// SPREADING AI LOGO ANIMATION (OUTWARD 360-DEGREE PULSING AURA)
+// ---------------------------------------------------------------------
+class SpreadingAiLogo extends StatefulWidget {
+  final double size;
+  const SpreadingAiLogo({super.key, this.size = 80});
+
+  @override
+  State<SpreadingAiLogo> createState() => _SpreadingAiLogoState();
+}
+
+class _SpreadingAiLogoState extends State<SpreadingAiLogo> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (context, child) {
+        final val = _pulseCtrl.value;
+        return SizedBox(
+          width: widget.size * 1.8,
+          height: widget.size * 1.8,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Wave 1: Outward spreading aura ring 1
+              _buildPulseRing(
+                scale: 1.0 + (val * 0.75),
+                opacity: (1.0 - val).clamp(0.0, 0.6),
+                color: const Color(0xFF00E6A1),
+              ),
+              // Wave 2: Outward spreading aura ring 2 (phase-shifted)
+              _buildPulseRing(
+                scale: 1.0 + (((val + 0.33) % 1.0) * 0.65),
+                opacity: (1.0 - ((val + 0.33) % 1.0)).clamp(0.0, 0.5),
+                color: const Color(0xFF0D9488),
+              ),
+              // Wave 3: Inner pulse glow ring 3
+              _buildPulseRing(
+                scale: 1.0 + (((val + 0.66) % 1.0) * 0.45),
+                opacity: (1.0 - ((val + 0.66) % 1.0)).clamp(0.0, 0.7),
+                color: const Color(0xFF2DD4BF),
+              ),
+              // Central Glowing Core Avatar
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [
+                      Color(0xFF00E6A1),
+                      Color(0xFF0A685A),
+                      Color(0xFF092921),
+                    ],
+                    stops: [0.0, 0.55, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00E6A1).withValues(alpha: 0.5),
+                      blurRadius: 24,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                  border: Border.all(
+                    color: const Color(0xFF2DD4BF).withValues(alpha: 0.8),
+                    width: 2.0,
+                  ),
+                ),
+                child: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(widget.size * 0.22),
+                    child: Image.asset(
+                      'assets/images/niwas_ai_icon.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPulseRing({
+    required double scale,
+    required double opacity,
+    required Color color,
+  }) {
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: color.withValues(alpha: opacity),
+            width: 2.0,
+          ),
+          gradient: RadialGradient(
+            colors: [
+              color.withValues(alpha: opacity * 0.35),
+              color.withValues(alpha: 0.0),
+            ],
+            stops: const [0.2, 1.0],
+          ),
+        ),
       ),
     );
   }
