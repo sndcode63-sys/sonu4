@@ -197,8 +197,23 @@ class AppPages {
     GetPage(
       name: AppRoutes.boostProperty,
       page: () {
-        final prop = Get.arguments as PartnerProperty? ?? PartnerProperty({});
-        return BoostPropertyScreen(property: prop);
+        PartnerProperty? prop;
+        int initialTabIndex = 0;
+        final args = Get.arguments;
+        if (args is PartnerProperty) {
+          prop = args;
+        } else if (args is Map) {
+          if (args['property'] is PartnerProperty) {
+            prop = args['property'] as PartnerProperty;
+          }
+          if (args['initialTabIndex'] is int) {
+            initialTabIndex = args['initialTabIndex'] as int;
+          }
+        }
+        return BoostPropertyScreen(
+          property: prop,
+          initialTabIndex: initialTabIndex,
+        );
       },
     ),
     GetPage(

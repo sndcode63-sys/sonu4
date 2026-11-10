@@ -379,12 +379,16 @@ class _CreditWalletScreenState extends State<CreditWalletScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Text(
-                                          'Deal Success Fee Calculator',
-                                          style: TextStyle(
-                                            fontSize: 13.5.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
+                                        Flexible(
+                                          child: Text(
+                                            'Deal Success Fee Calculator',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 13.5.sp,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
                                           ),
                                         ),
                                         SizedBox(width: 6.w),

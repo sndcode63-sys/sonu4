@@ -1714,7 +1714,15 @@ class PartnerRepository {
       final body = _asMap(response.data);
       if (body['success'] == false) return const [];
       _ensureSuccess(body, fallback: 'Could not load promotion plans.');
-      return extractDataList(body).map(PromotionPlanModel.new).toList();
+      final list = extractDataList(body);
+      if (list.isNotEmpty) {
+        return list.map(PromotionPlanModel.new).toList();
+      }
+      final data = body['data'];
+      if (data is Map && data['plans'] is List) {
+        return asMapList(data['plans']).map(PromotionPlanModel.new).toList();
+      }
+      return const [];
     } on DioException catch (e, st) {
       AppLogger.e('getPromotionPlans failed', e, st);
       return const [];

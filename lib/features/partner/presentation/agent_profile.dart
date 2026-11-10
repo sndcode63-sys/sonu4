@@ -385,7 +385,10 @@ class AgentProfileScreen extends StatelessWidget {
 
                       // Profile & Property Boosting Shortcut Card
                       GestureDetector(
-                        onTap: () => Get.toNamed(AppRoutes.boostProperty),
+                        onTap: () => Get.toNamed(
+                          AppRoutes.boostProperty,
+                          arguments: {'initialTabIndex': 1},
+                        ),
                         child: Container(
                           padding: EdgeInsets.all(14.w),
                           decoration: BoxDecoration(
@@ -418,12 +421,16 @@ class AgentProfileScreen extends StatelessWidget {
                                   children: [
                                     Row(
                                       children: [
-                                        Text(
-                                          'Boost Profile & Listings',
-                                          style: TextStyle(
-                                            fontSize: 14.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0B1B2E),
+                                        Flexible(
+                                          child: Text(
+                                            'Boost Profile & Listings',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 14.sp,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF0B1B2E),
+                                            ),
                                           ),
                                         ),
                                         SizedBox(width: 6.w),

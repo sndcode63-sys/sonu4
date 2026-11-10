@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:diginiwas/core/widgets/app_toast.dart';
 import 'package:diginiwas/features/partner/controllers/partner_home_controller.dart';
 import 'package:diginiwas/features/partner/models/partner_models.dart';
-import 'package:diginiwas/features/partner/presentation/credit_wallet_screen.dart';
 import 'package:diginiwas/features/partner/presentation/partner_bottom_sheets.dart';
 
 import 'widgets/partner_ui.dart';
@@ -126,17 +125,17 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
   bool _isSubmitting = false;
   bool _isAccordionExpanded = true;
 
-  // Exact 4 Plans matching user screenshot
+  // Valid DigiNiwas Promotion Plans matching backend enums
   final List<_UiPlanItem> _fallbackPropertyPlans = const [
     _UiPlanItem(
-      id: 'plan_std',
-      code: 'STANDARD_BOOST',
-      title: 'Standard Boosting',
+      id: 'plan_boost',
+      code: 'PROPERTY_BOOST',
+      title: 'Boost Property',
       days: 7,
       daysBadge: '7 Days',
-      costCredits: 99,
-      priceLabel: '99 Credits',
-      description: 'Get more views and enquiries for your property listing.',
+      costCredits: 100,
+      priceLabel: '100 Credits',
+      description: 'Get Recommended for You visibility and reach more genuine buyers.',
       icon: Icons.rocket_launch_rounded,
       iconColor: Color(0xFF12805C),
       iconBg: Color(0xFFD3EEDF),
@@ -147,59 +146,39 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
       ],
     ),
     _UiPlanItem(
-      id: 'plan_ai',
-      code: 'AI_PROMOTION',
-      title: 'AI Promotion',
-      days: 15,
-      daysBadge: '15 Days',
-      costCredits: 249,
-      priceLabel: '249 Credits',
-      description: 'Get AI-powered visibility and reach more genuine buyers.',
+      id: 'plan_feat',
+      code: 'FEATURED_7_DAYS',
+      title: 'Featured Property',
+      days: 7,
+      daysBadge: '7 Days',
+      costCredits: 160,
+      priceLabel: '160 Credits',
+      description: 'Priority featured placement with Property Stories & popular reach.',
       icon: Icons.auto_awesome_rounded,
       iconColor: Color(0xFFB7791F),
       iconBg: Color(0xFFFEF3C7),
       featureTags: [
-        (icon: Icons.psychology_rounded, text: 'AI Suggested Properties'),
+        (icon: Icons.star_rounded, text: 'Recommended for You'),
+        (icon: Icons.location_on_outlined, text: 'Popular Near Location'),
         (icon: Icons.description_outlined, text: 'Property Stories'),
-        (icon: Icons.groups_outlined, text: 'AI matching'),
       ],
     ),
     _UiPlanItem(
-      id: 'plan_prem',
-      code: 'PREMIUM_PROMOTION',
-      title: 'Premium Property Promotion',
-      days: 15,
-      daysBadge: '15 Days',
-      costCredits: 999,
-      priceLabel: '999 Credits',
-      description: 'Maximum exposure with marketing and professional support.',
+      id: 'plan_local',
+      code: 'LOCALITY_TOP_30_DAYS',
+      title: 'Property Locality Top',
+      days: 30,
+      daysBadge: '30 Days',
+      costCredits: 210,
+      priceLabel: '210 Credits',
+      description: 'Number 1 locality ranking with Niwas AI suggestions and Meta Ads.',
       icon: Icons.workspace_premium_rounded,
       iconColor: Color(0xFF2457A6),
       iconBg: Color(0xFFD6E4F8),
       featureTags: [
-        (icon: Icons.star_rounded, text: 'All AI benefits'),
-        (icon: Icons.campaign_rounded, text: '7 days Meta Ads'),
-        (icon: Icons.videocam_outlined, text: 'Professional videography'),
-        (icon: Icons.event_available_rounded, text: 'Appointment help'),
-      ],
-    ),
-    _UiPlanItem(
-      id: 'plan_plat',
-      code: 'PLATINUM_PROMOTION',
-      title: 'Platinum Property Promotion',
-      days: 15,
-      daysBadge: '15 Days',
-      costCredits: 1999,
-      priceLabel: '₹1,999 + Custom',
-      description: 'Complete marketing solution with custom support.',
-      icon: Icons.diamond_rounded,
-      iconColor: Color(0xFF5B57C9),
-      iconBg: Color(0xFFE8E6FA),
-      featureTags: [
-        (icon: Icons.workspace_premium_rounded, text: 'All premium benefits'),
-        (icon: Icons.bar_chart_rounded, text: 'Custom Meta services'),
-        (icon: Icons.shield_outlined, text: 'Priority placement'),
-        (icon: Icons.assignment_turned_in_outlined, text: 'Admin approval'),
+        (icon: Icons.psychology_rounded, text: 'Niwas AI Suggested Properties'),
+        (icon: Icons.campaign_rounded, text: '7 Days Meta Ads'),
+        (icon: Icons.diamond_rounded, text: '30 Days Locality Top'),
       ],
     ),
   ];
@@ -210,10 +189,10 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
       id: 'prof_std',
       code: 'PARTNER_BOOST',
       title: 'Top Partner Spotlight',
-      days: 15,
-      daysBadge: '15 Days',
-      costCredits: 299,
-      priceLabel: '299 Credits',
+      days: 7,
+      daysBadge: '7 Days',
+      costCredits: 99,
+      priceLabel: '99 Credits',
       description: 'Feature your Partner profile at the top of partner directory & search.',
       icon: Icons.stars_rounded,
       iconColor: Color(0xFFB7791F),
@@ -225,21 +204,39 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
       ],
     ),
     _UiPlanItem(
-      id: 'prof_prem',
-      code: 'PARTNER_PRO_BOOST',
-      title: 'Elite Territory Partner',
-      days: 30,
-      daysBadge: '30 Days',
-      costCredits: 599,
-      priceLabel: '599 Credits',
-      description: 'Exclusive territory branding across the entire city locality.',
+      id: 'prof_feat',
+      code: 'PARTNER_FEATURED',
+      title: 'Featured Partner',
+      days: 7,
+      daysBadge: '7 Days',
+      costCredits: 149,
+      priceLabel: '149 Credits',
+      description: 'Featured partner branding with exclusive locality reach.',
       icon: Icons.workspace_premium_rounded,
       iconColor: Color(0xFF12805C),
       iconBg: Color(0xFFD3EEDF),
       featureTags: [
-        (icon: Icons.location_city_rounded, text: 'Locality Exclusive placement'),
+        (icon: Icons.location_city_rounded, text: 'Locality Featured placement'),
         (icon: Icons.route_rounded, text: 'Dedicated lead routing'),
-        (icon: Icons.verified_user_rounded, text: '30 Days active badge'),
+        (icon: Icons.verified_user_rounded, text: 'Verified Featured badge'),
+      ],
+    ),
+    _UiPlanItem(
+      id: 'prof_local',
+      code: 'PARTNER_LOCALITY_TOP',
+      title: 'Partner Locality Top',
+      days: 30,
+      daysBadge: '30 Days',
+      costCredits: 200,
+      priceLabel: '200 Credits',
+      description: 'Exclusive territory branding across the entire city locality.',
+      icon: Icons.diamond_rounded,
+      iconColor: Color(0xFF5B57C9),
+      iconBg: Color(0xFFE8E6FA),
+      featureTags: [
+        (icon: Icons.workspace_premium_rounded, text: 'Top Locality Rank #1'),
+        (icon: Icons.military_tech_rounded, text: 'Elite Partner Spotlight'),
+        (icon: Icons.date_range_rounded, text: '30 Days continuous boost'),
       ],
     ),
   ];
@@ -256,10 +253,16 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
     _selectedProperty = widget.property ??
         (_controller.properties.isNotEmpty ? _controller.properties.first : null);
 
+    int startTab = widget.initialTabIndex;
+    final args = Get.arguments;
+    if (args is Map && args['initialTabIndex'] is int) {
+      startTab = args['initialTabIndex'] as int;
+    }
+
     _tabController = TabController(
       length: 4,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, 3),
+      initialIndex: startTab.clamp(0, 3),
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -296,7 +299,9 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
     if (plans.isEmpty) return;
     final plan = plans[_selectedPropertyPlanIndex.clamp(0, plans.length - 1)];
 
-    if (_selectedProperty == null) {
+    final effectiveProperty = _selectedProperty ??
+        (_controller.properties.isNotEmpty ? _controller.properties.first : null);
+    if (effectiveProperty == null) {
       AppToast.showError('Please select a property to boost.');
       return;
     }
@@ -310,14 +315,14 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
     setState(() => _isSubmitting = true);
     try {
       await _controller.directBoostProperty(
-        propertyId: _selectedProperty!.id,
+        propertyId: effectiveProperty.id,
         promotionType: plan.code,
       );
       if (mounted) {
         _showSuccessDialog(
           title: 'Boost Request Submitted!',
           message:
-              'Your request for "${_selectedProperty!.title}" has been sent to Admin. ${plan.costCredits} credits are reserved and promotion will go live upon review.',
+              'Your request for "${effectiveProperty.title}" has been sent to Admin. ${plan.costCredits} credits are reserved and promotion will go live upon review.',
         );
       }
     } catch (e) {
@@ -342,6 +347,12 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
       return;
     }
 
+    final partnerName = _controller.partnerName.value.isNotEmpty
+        ? _controller.partnerName.value
+        : (_controller.partnerProfile.value?.name.isNotEmpty == true
+            ? _controller.partnerProfile.value!.name
+            : 'Partner Profile');
+
     setState(() => _isSubmitting = true);
     try {
       await _controller.directBoostPartnerProfile(
@@ -351,7 +362,7 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
         _showSuccessDialog(
           title: 'Profile Boost Submitted!',
           message:
-              'Your Partner Profile boost request has been submitted to Admin! ${plan.costCredits} credits are reserved and your Top Partner badge will go live upon review.',
+              'Partner Profile boost request for "$partnerName" has been submitted to Admin! ${plan.costCredits} credits are reserved and your Top Partner badge will go live upon review.',
         );
       }
     } catch (e) {
@@ -619,110 +630,112 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
   // TAB 1: PROPERTY BOOST TAB (MATCHING USER SCREENSHOT)
   // ===========================================================================
   Widget _buildPropertyBoostTab() {
-    final plans = _getEffectivePropertyPlans();
-    final selectedPlan = plans[_selectedPropertyPlanIndex.clamp(0, plans.length - 1)];
+    return Obx(() {
+      final plans = _getEffectivePropertyPlans();
+      final selectedPlan = plans[_selectedPropertyPlanIndex.clamp(0, plans.length - 1)];
 
-    return Scaffold(
-      backgroundColor: PartnerColors.canvas,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([
-            _controller.loadPropertyPlans(),
-            _controller.loadCredits(),
-            _controller.loadProperties(),
-          ]);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Property Card
-              _buildPropertySummaryCard(),
+      return Scaffold(
+        backgroundColor: PartnerColors.canvas,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait([
+              _controller.loadPropertyPlans(),
+              _controller.loadCredits(),
+              _controller.loadProperties(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Property Card
+                _buildPropertySummaryCard(),
 
-              SizedBox(height: 12.h),
+                SizedBox(height: 12.h),
 
-              // 2. Available Wallet Balance Card
-              _buildWalletBalanceCard(),
+                // 2. Available Wallet Balance Card
+                _buildWalletBalanceCard(),
 
-              SizedBox(height: 18.h),
+                SizedBox(height: 18.h),
 
-              // 3. Choose a Property Boost Plan Header
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Choose a Property Boost Plan',
-                    style: GoogleFonts.poppins(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.bold,
-                      color: _navy,
+                // 3. Choose a Property Boost Plan Header
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Choose a Property Boost Plan',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.bold,
+                        color: _navy,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.bar_chart_rounded, size: 16.sp, color: _mintText),
-                      SizedBox(width: 4.w),
-                      SizedBox(
-                        width: 140.w,
-                        child: Text(
-                          'Get more visibility, more enquiries, and sell your property faster.',
-                          maxLines: 2,
-                          style: GoogleFonts.poppins(
-                            fontSize: 8.5.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF5B6B7C),
-                            height: 1.2,
+                    SizedBox(height: 3.h),
+                    Row(
+                      children: [
+                        Icon(Icons.trending_up_rounded, size: 14.sp, color: _mintText),
+                        SizedBox(width: 4.w),
+                        Expanded(
+                          child: Text(
+                            'Get more visibility, more enquiries, and sell your property faster.',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF5B6B7C),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 12.h),
-
-              // 4. Boost Plans
-              ...List.generate(
-                plans.length,
-                (i) => _buildPlanCard(
-                  plans[i],
-                  isSelected: _selectedPropertyPlanIndex == i,
-                  onTap: () => setState(() => _selectedPropertyPlanIndex = i),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
 
-              SizedBox(height: 16.h),
+                SizedBox(height: 12.h),
 
-              // 5. What's included in each plan? Accordion Matrix
-              _buildFeatureComparisonAccordion(),
+                // 4. Boost Plans
+                ...List.generate(
+                  plans.length,
+                  (i) => _buildPlanCard(
+                    plans[i],
+                    isSelected: _selectedPropertyPlanIndex == i,
+                    onTap: () => setState(() => _selectedPropertyPlanIndex = i),
+                  ),
+                ),
 
-              SizedBox(height: 90.h),
-            ],
+                SizedBox(height: 16.h),
+
+                // 5. What's included in each plan? Accordion Matrix
+                _buildFeatureComparisonAccordion(),
+
+                SizedBox(height: 90.h),
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: _buildBottomContinueBar(
-        title: 'Continue with ${selectedPlan.title} (${selectedPlan.priceLabel})',
-        isSubmitting: _isSubmitting,
-        onPressed: _isSubmitting ? null : _handlePropertyBoostSubmit,
-      ),
-    );
+        bottomNavigationBar: _buildBottomContinueBar(
+          title: 'Continue with ${selectedPlan.title} (${selectedPlan.priceLabel})',
+          isSubmitting: _isSubmitting,
+          onPressed: _isSubmitting ? null : _handlePropertyBoostSubmit,
+        ),
+      );
+    });
   }
 
   // ---------------------------------------------------------------------------
   // 1. Property Summary Card (matching screenshot)
   // ---------------------------------------------------------------------------
   Widget _buildPropertySummaryCard() {
-    final title = _selectedProperty?.title ?? '3 BHK House, Model Town';
-    final location = _selectedProperty?.city.isNotEmpty == true
-        ? _selectedProperty!.city
-        : (_selectedProperty?.address.isNotEmpty == true ? _selectedProperty!.address : 'Ambala, Haryana');
-    final imgUrl = _selectedProperty?.imageUrl ?? '';
+    final effectiveProperty = _selectedProperty ??
+        (_controller.properties.isNotEmpty ? _controller.properties.first : null);
+    final title = effectiveProperty?.title ?? '3 BHK House, Model Town';
+    final location = effectiveProperty?.city.isNotEmpty == true
+        ? effectiveProperty!.city
+        : (effectiveProperty?.address.isNotEmpty == true ? effectiveProperty!.address : 'Ambala, Haryana');
+    final imgUrl = effectiveProperty?.imageUrl ?? '';
 
     return Container(
       padding: EdgeInsets.all(12.w),
@@ -778,7 +791,29 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
                     if (_controller.properties.length > 1)
                       InkWell(
                         onTap: _showPropertyPickerSheet,
-                        child: Icon(Icons.swap_horiz_rounded, size: 18.sp, color: _mintText),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE6F5EE),
+                            borderRadius: BorderRadius.circular(6.r),
+                            border: Border.all(color: _mintText.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.swap_horiz_rounded, size: 14.sp, color: _mintText),
+                              SizedBox(width: 3.w),
+                              Text(
+                                'Change',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 9.5.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: _mintText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -830,39 +865,6 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
               ],
             ),
           ),
-          SizedBox(width: 8.w),
-          // Views & Enquiries stats
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.visibility_outlined, size: 13.sp, color: const Color(0xFF0A7A66)),
-                      SizedBox(width: 3.w),
-                      Text('2,348', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.bold, color: _navy)),
-                    ],
-                  ),
-                  Text('Property Views', style: GoogleFonts.poppins(fontSize: 8.5.sp, color: const Color(0xFF5B6B7C))),
-                ],
-              ),
-              SizedBox(width: 8.w),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.chat_bubble_outline_rounded, size: 13.sp, color: const Color(0xFF0A7A66)),
-                      SizedBox(width: 3.w),
-                      Text('176', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.bold, color: _navy)),
-                    ],
-                  ),
-                  Text('Enquiries', style: GoogleFonts.poppins(fontSize: 8.5.sp, color: const Color(0xFF5B6B7C))),
-                ],
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -897,33 +899,37 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
       ),
       child: Row(
         children: [
-          Icon(Icons.account_balance_wallet_outlined, color: _mintText, size: 20.sp),
-          SizedBox(width: 8.w),
-          Text(
-            'Available Wallet Balance',
-            style: GoogleFonts.poppins(
-              fontSize: 11.5.sp,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF4B5B6C),
+          Icon(Icons.account_balance_wallet_outlined, color: _mintText, size: 19.sp),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: Text(
+              'Wallet Balance',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 11.5.sp,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF4B5B6C),
+              ),
             ),
           ),
-          const Spacer(),
+          SizedBox(width: 6.w),
           Obx(
             () => Text(
               '${_controller.creditBalance.value} Credits',
               style: GoogleFonts.poppins(
-                fontSize: 13.5.sp,
+                fontSize: 12.5.sp,
                 fontWeight: FontWeight.bold,
                 color: _mintText,
               ),
             ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 8.w),
           InkWell(
             onTap: () => showTopUpCreditsSheet(context),
             borderRadius: BorderRadius.circular(8.r),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8.r),
@@ -932,7 +938,7 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
               child: Text(
                 '+ Add Credits',
                 style: GoogleFonts.poppins(
-                  fontSize: 10.5.sp,
+                  fontSize: 10.sp,
                   fontWeight: FontWeight.bold,
                   color: _mintText,
                 ),
@@ -1153,8 +1159,8 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
                   ),
                   Container(
                     padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2F5),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEEF2F5),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1356,126 +1362,156 @@ class _BoostPropertyScreenState extends State<BoostPropertyScreen>
   // OTHER TABS (PROFILE, SELLER REQUESTS, CAMPAIGNS) - POLISHED WHITE THEME
   // ===========================================================================
   Widget _buildProfileBoostTab() {
-    final plans = _getEffectiveProfilePlans();
-    final selectedPlan = plans[_selectedProfilePlanIndex.clamp(0, plans.length - 1)];
-    final partner = _controller.partnerProfile.value;
+    return Obx(() {
+      final plans = _getEffectiveProfilePlans();
+      final selectedPlan = plans[_selectedProfilePlanIndex.clamp(0, plans.length - 1)];
+      final partner = _controller.partnerProfile.value;
+      final partnerName = _controller.partnerName.value.isNotEmpty
+          ? _controller.partnerName.value
+          : (partner?.name.isNotEmpty == true ? partner!.name : 'Partner Profile');
+      final partnerPhone = _controller.partnerPhone.value.isNotEmpty
+          ? _controller.partnerPhone.value
+          : (partner?.phone.isNotEmpty == true ? partner!.phone : 'Verified Real Estate Advisor');
+      final rawCode = _controller.partnerId.value.isNotEmpty
+          ? _controller.partnerId.value
+          : (partner?.partnerCode.isNotEmpty == true ? partner!.partnerCode : '');
+      final formattedId = rawCode.isNotEmpty
+          ? (rawCode.length > 8 ? 'DN-AG-${rawCode.substring(rawCode.length - 6).toUpperCase()}' : rawCode)
+          : 'DN-AG';
+      final profilePic = _controller.partnerProfilePic.value;
 
-    return Scaffold(
-      backgroundColor: PartnerColors.canvas,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([
-            _controller.loadProfilePlans(),
-            _controller.loadCredits(),
-          ]);
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0B1B2E), Color(0xFF0A5C4A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0B1B2E).withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+      return Scaffold(
+        backgroundColor: PartnerColors.canvas,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait([
+              _controller.loadProfilePlans(),
+              _controller.loadCredits(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0B1B2E), Color(0xFF0A5C4A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 26.r,
-                          backgroundColor: Colors.white24,
-                          child: Icon(Icons.person_rounded, size: 30.sp, color: Colors.white),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      partner?.name ?? 'Partner Profile',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 15.sp,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                    borderRadius: BorderRadius.circular(18.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0B1B2E).withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 26.r,
+                            backgroundColor: Colors.white24,
+                            backgroundImage: profilePic.isNotEmpty ? NetworkImage(profilePic) : null,
+                            child: profilePic.isEmpty
+                                ? Text(
+                                    partnerName.isNotEmpty ? partnerName[0].toUpperCase() : 'P',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 22.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        partnerName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 15.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(width: 6.w),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFD9961F),
-                                      borderRadius: BorderRadius.circular(6.r),
+                                    SizedBox(width: 6.w),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFD9961F),
+                                        borderRadius: BorderRadius.circular(6.r),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.verified_rounded, size: 10, color: Colors.white),
+                                          SizedBox(width: 2.w),
+                                          Text('TOP PARTNER', style: GoogleFonts.poppins(fontSize: 8.5.sp, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        ],
+                                      ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.verified_rounded, size: 10, color: Colors.white),
-                                        SizedBox(width: 2.w),
-                                        Text('TOP PARTNER', style: GoogleFonts.poppins(fontSize: 8.5.sp, fontWeight: FontWeight.bold, color: Colors.white)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 2.h),
-                              Text(
-                                partner?.phone.isNotEmpty == true ? partner!.phone : 'Verified Real Estate Advisor',
-                                style: GoogleFonts.poppins(fontSize: 11.sp, color: Colors.white70),
-                              ),
-                            ],
+                                  ],
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  '$formattedId • $partnerPhone',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(fontSize: 11.sp, color: Colors.white70),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: 12.h),
-              _buildWalletBalanceCard(),
-              SizedBox(height: 16.h),
-              Text(
-                'Choose a Profile Promotion Plan',
-                style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.bold, color: _navy),
-              ),
-              SizedBox(height: 10.h),
-              ...List.generate(
-                plans.length,
-                (i) => _buildPlanCard(
-                  plans[i],
-                  isSelected: _selectedProfilePlanIndex == i,
-                  onTap: () => setState(() => _selectedProfilePlanIndex = i),
+                SizedBox(height: 12.h),
+                _buildWalletBalanceCard(),
+                SizedBox(height: 16.h),
+                Text(
+                  'Choose a Profile Promotion Plan',
+                  style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.bold, color: _navy),
                 ),
-              ),
-              SizedBox(height: 80.h),
-            ],
+                SizedBox(height: 10.h),
+                ...List.generate(
+                  plans.length,
+                  (i) => _buildPlanCard(
+                    plans[i],
+                    isSelected: _selectedProfilePlanIndex == i,
+                    onTap: () => setState(() => _selectedProfilePlanIndex = i),
+                  ),
+                ),
+                SizedBox(height: 80.h),
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: _buildBottomContinueBar(
-        title: 'Boost Profile (${selectedPlan.priceLabel})',
-        isSubmitting: _isSubmitting,
-        onPressed: _isSubmitting ? null : _handleProfileBoostSubmit,
-      ),
-    );
+        bottomNavigationBar: _buildBottomContinueBar(
+          title: 'Boost Profile for $partnerName (${selectedPlan.priceLabel})',
+          isSubmitting: _isSubmitting,
+          onPressed: _isSubmitting ? null : _handleProfileBoostSubmit,
+        ),
+      );
+    });
   }
 
   Widget _buildSellerRequestsTab() {

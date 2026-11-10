@@ -621,7 +621,8 @@ List<Map<String, dynamic>> extractDataList(Map<String, dynamic> body) {
   if (data is List) return asMapList(data);
   if (data is Map) {
     final nested = asMapList(
-      data['items'] ??
+      data['plans'] ??
+          data['items'] ??
           data['leads'] ??
           data['properties'] ??
           data['visits'] ??
@@ -634,6 +635,7 @@ List<Map<String, dynamic>> extractDataList(Map<String, dynamic> body) {
     if (nested.isNotEmpty) return nested;
   }
   for (final key in [
+    'plans',
     'leads',
     'properties',
     'visits',
