@@ -6940,6 +6940,7 @@ class _SimilarPropertiesScreen extends StatelessWidget {
                                 ),
                               ),
                             ],
+
                           ),
                         ),
                       if (ppsf.isNotEmpty && ppsf != '0') ...[
